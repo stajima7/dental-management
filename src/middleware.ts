@@ -25,9 +25,17 @@ export async function middleware(req: NextRequest) {
   }
 
   // JWTトークンで認証チェック（軽量）
+  // NextAuth v5 (auth.js) では cookie名が "authjs.session-token"
+  // HTTPS環境では "__Secure-authjs.session-token"
+  const isSecure = req.nextUrl.protocol === "https:"
+  const cookieName = isSecure
+    ? "__Secure-authjs.session-token"
+    : "authjs.session-token"
+
   const token = await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+    cookieName,
   })
   const isLoggedIn = !!token
 

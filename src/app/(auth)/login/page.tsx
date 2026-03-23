@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
+import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,6 @@ import { Label } from "@/components/ui/label";
 function LoginForm() {
   const searchParams = useSearchParams();
   const registered = searchParams.get("registered");
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,32 +22,18 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      // 1. CSRFトークン取得
-      const csrfRes = await fetch("/api/auth/csrf");
-      const { csrfToken } = await csrfRes.json();
-
-      // 2. NextAuth callback に直接POST
-      const res = await fetch("/api/auth/callback/credentials", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          email,
-          password,
-          csrfToken,
-          callbackUrl,
-        }),
-        redirect: "follow",
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
       });
 
-      // 3. レスポンスURLを確認
-      const url = new URL(res.url);
-
-      if (url.searchParams.has("error")) {
+      if (result?.error) {
         setError("メールアドレスまたはパスワードが正しくありません");
         setLoading(false);
       } else {
-        // 認証成功 → ダッシュボードへ
-        window.location.href = callbackUrl;
+        // ログイン成功 → ページ遷移（cookieを反映させるためfull reload）
+        window.location.href = "/dashboard";
       }
     } catch (err) {
       console.error("Login error:", err);
