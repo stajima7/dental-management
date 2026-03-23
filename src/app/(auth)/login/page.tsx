@@ -1,17 +1,16 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const registered = searchParams.get("registered");
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -23,31 +22,34 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      // まずサーバーサイドで認証チェック
-      const checkRes = await fetch("/api/auth/debug", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const checkData = await checkRes.json();
+      // 1. CSRFトークン取得
+      const csrfRes = await fetch("/api/auth/csrf");
+      const { csrfToken } = await csrfRes.json();
 
-      if (!checkData.passwordValid) {
+      // 2. NextAuth callback に直接POST
+      const res = await fetch("/api/auth/callback/credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          email,
+          password,
+          csrfToken,
+          callbackUrl,
+        }),
+        redirect: "follow",
+      });
+
+      // 3. レスポンスURLを確認
+      const url = new URL(res.url);
+
+      if (url.searchParams.has("error")) {
         setError("メールアドレスまたはパスワードが正しくありません");
         setLoading(false);
-        return;
+      } else {
+        // 認証成功 → ダッシュボードへ
+        window.location.href = callbackUrl;
       }
-
-      // 認証情報が正しいので、NextAuthでサインイン（リダイレクト有効）
-      await signIn("credentials", {
-        email,
-        password,
-        redirectTo: "/dashboard",
-      });
-    } catch (err: any) {
-      // NEXT_REDIRECT エラーは正常なリダイレクト
-      if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {
-        return;
-      }
+    } catch (err) {
       console.error("Login error:", err);
       setError("ログインに失敗しました");
       setLoading(false);
