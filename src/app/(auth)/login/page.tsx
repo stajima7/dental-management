@@ -27,15 +27,25 @@ function LoginForm() {
         email,
         password,
         redirect: false,
+        callbackUrl: "/dashboard",
       });
+
+      console.log("signIn result:", JSON.stringify(result));
 
       if (result?.error) {
         setError("メールアドレスまたはパスワードが正しくありません");
+      } else if (result?.ok) {
+        // 認証成功 - ダッシュボードへ
+        window.location.href = "/dashboard";
+      } else if (result?.url) {
+        // リダイレクトURLがある場合
+        window.location.href = result.url;
       } else {
-        router.push("/dashboard");
-        router.refresh();
+        // フォールバック
+        window.location.href = "/dashboard";
       }
-    } catch {
+    } catch (err) {
+      console.error("Login error:", err);
       setError("ログインに失敗しました");
     } finally {
       setLoading(false);
