@@ -139,16 +139,22 @@ function CsvImportTab({ clinicId }: { clinicId: string }) {
     setError("");
     try {
       const mappedData = getMappedData();
+      console.log("Import data sample:", mappedData[0]);
+      console.log("ClinicId:", clinicId);
       const res = await fetch("/api/import/csv", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clinicId, data: mappedData, mapping }),
+        body: JSON.stringify({ clinicId, data: mappedData, mapping: JSON.stringify(mapping) }),
       });
-      if (!res.ok) throw new Error("インポートに失敗しました");
-      const data = await res.json();
-      setResult(data);
+      const responseData = await res.json();
+      console.log("Import response:", responseData);
+      if (!res.ok) {
+        throw new Error(responseData.error || `インポートに失敗しました (${res.status})`);
+      }
+      setResult(responseData);
       setStep("result");
     } catch (err) {
+      console.error("Import error:", err);
       setError(err instanceof Error ? err.message : "インポートに失敗しました");
     } finally {
       setLoading(false);

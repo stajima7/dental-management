@@ -6,12 +6,14 @@ import prisma from "@/lib/prisma";
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
+    console.log("Import API - session:", JSON.stringify(session?.user || null));
     if (!session?.user) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+      return NextResponse.json({ error: "認証が必要です。再ログインしてください。" }, { status: 401 });
     }
 
     const body = await req.json();
     const { clinicId, data, mapping } = body;
+    console.log("Import API - clinicId:", clinicId, "rows:", data?.length);
 
     if (!clinicId || !data || !Array.isArray(data)) {
       return NextResponse.json({ error: "clinicId, data が必要です" }, { status: 400 });
