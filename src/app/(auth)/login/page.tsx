@@ -23,31 +23,33 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const result = await signIn("credentials", {
+      // まずサーバーサイドで認証チェック
+      const checkRes = await fetch("/api/auth/debug", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const checkData = await checkRes.json();
+
+      if (!checkData.passwordValid) {
+        setError("メールアドレスまたはパスワードが正しくありません");
+        setLoading(false);
+        return;
+      }
+
+      // 認証情報が正しいので、NextAuthでサインイン（リダイレクト有効）
+      await signIn("credentials", {
         email,
         password,
-        redirect: false,
-        callbackUrl: "/dashboard",
+        redirectTo: "/dashboard",
       });
-
-      console.log("signIn result:", JSON.stringify(result));
-
-      if (result?.error) {
-        setError("メールアドレスまたはパスワードが正しくありません");
-      } else if (result?.ok) {
-        // 認証成功 - ダッシュボードへ
-        window.location.href = "/dashboard";
-      } else if (result?.url) {
-        // リダイレクトURLがある場合
-        window.location.href = result.url;
-      } else {
-        // フォールバック
-        window.location.href = "/dashboard";
+    } catch (err: any) {
+      // NEXT_REDIRECT エラーは正常なリダイレクト
+      if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {
+        return;
       }
-    } catch (err) {
       console.error("Login error:", err);
       setError("ログインに失敗しました");
-    } finally {
       setLoading(false);
     }
   };
