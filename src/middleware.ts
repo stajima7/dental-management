@@ -1,9 +1,9 @@
-import { auth } from "@/lib/auth"
 import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+import { getToken } from "next-auth/jwt"
 
-export default auth((req) => {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
-  const isLoggedIn = !!req.auth
 
   // 公開ページ（認証不要）
   const publicPaths = ["/login", "/register"]
@@ -23,6 +23,10 @@ export default auth((req) => {
     return NextResponse.next()
   }
 
+  // JWTトークンで認証チェック（軽量）
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+  const isLoggedIn = !!token
+
   // 未認証で保護ページにアクセス → ログインへリダイレクト
   if (!isLoggedIn && !isPublicPage) {
     const loginUrl = new URL("/login", req.nextUrl.origin)
@@ -36,7 +40,7 @@ export default auth((req) => {
   }
 
   return NextResponse.next()
-})
+}
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
