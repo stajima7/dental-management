@@ -81,7 +81,7 @@ export default function SetupPage() {
           city,
           openingYear: openingYear || null,
           corporateType,
-          clinicType,
+          clinicType: JSON.stringify(clinicType),
           isHomeVisit,
         }),
       });
