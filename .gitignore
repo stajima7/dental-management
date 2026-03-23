@@ -48,3 +48,5 @@ prisma/dev.db-journal
 
 # claude
 .claude/
+dental-management/
+sample-data/
