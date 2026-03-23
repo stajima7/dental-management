@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import prisma from "@/lib/prisma"
+import { auth } from "@/lib/auth"
 
 export async function POST(req: Request) {
   try {
@@ -13,9 +14,6 @@ export async function POST(req: Request) {
         step: "findUser",
         error: "User not found",
         email,
-        dbUrl: process.env.PRISMA_DATABASE_URL ? "SET" : "NOT_SET",
-        postgresUrl: process.env.POSTGRES_URL ? "SET" : "NOT_SET",
-        databaseUrl: process.env.DATABASE_URL ? "SET" : "NOT_SET",
       })
     }
 
@@ -28,14 +26,27 @@ export async function POST(req: Request) {
       userName: user.name,
       hasPassword: !!user.password,
       passwordValid: isValid,
-      nextauthSecret: process.env.NEXTAUTH_SECRET ? "SET" : "NOT_SET",
-      authSecret: process.env.AUTH_SECRET ? "SET" : "NOT_SET",
     })
   } catch (error: any) {
     return NextResponse.json({
       step: "error",
       message: error.message,
-      stack: error.stack?.split("\n").slice(0, 3),
+    }, { status: 500 })
+  }
+}
+
+// GET - セッション確認用
+export async function GET() {
+  try {
+    const session = await auth()
+    return NextResponse.json({
+      hasSession: !!session,
+      user: session?.user || null,
+    })
+  } catch (error: any) {
+    return NextResponse.json({
+      error: error.message,
+      stack: error.stack?.split("\n").slice(0, 5),
     }, { status: 500 })
   }
 }
