@@ -9,8 +9,10 @@ export async function middleware(req: NextRequest) {
   const publicPaths = ["/login", "/register"]
   const isPublicPage = publicPaths.some((path) => pathname.startsWith(path))
 
-  // API認証ルート（NextAuth用）
-  const isAuthApi = pathname.startsWith("/api/auth")
+  // APIルートはすべてそのまま通す（API側で個別に認証チェック）
+  if (pathname.startsWith("/api")) {
+    return NextResponse.next()
+  }
 
   // 静的アセット
   const isStaticAsset =
@@ -18,13 +20,15 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/favicon") ||
     pathname.includes(".")
 
-  // 静的アセットとNextAuth APIはそのまま通す
-  if (isStaticAsset || isAuthApi) {
+  if (isStaticAsset) {
     return NextResponse.next()
   }
 
   // JWTトークンで認証チェック（軽量）
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+  })
   const isLoggedIn = !!token
 
   // 未認証で保護ページにアクセス → ログインへリダイレクト

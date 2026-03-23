@@ -4,7 +4,8 @@ import bcrypt from "bcryptjs"
 import prisma from "./prisma"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // PrismaAdapterを使わない（Credentials認証との互換性問題を回避）
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
