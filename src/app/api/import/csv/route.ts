@@ -216,6 +216,7 @@ export async function POST(req: NextRequest) {
               uniquePatientCount: parseInt(row.uniquePatients) || 0,
               newPatientCount: parseInt(row.newPatients) || 0,
               returnPatientCount: parseInt(row.returnPatients) || 0,
+              dropoutCount: parseInt(row.dropoutCount) || 0,
               maintenanceTransitionCount: parseInt(row.maintenancePatients) || 0,
             },
             create: {
@@ -226,6 +227,7 @@ export async function POST(req: NextRequest) {
               uniquePatientCount: parseInt(row.uniquePatients) || 0,
               newPatientCount: parseInt(row.newPatients) || 0,
               returnPatientCount: parseInt(row.returnPatients) || 0,
+              dropoutCount: parseInt(row.dropoutCount) || 0,
               maintenanceTransitionCount: parseInt(row.maintenancePatients) || 0,
             },
           });
@@ -244,7 +246,8 @@ export async function POST(req: NextRequest) {
             update: {
               appointmentCount: parseInt(row.appointmentCount) || 0,
               cancelCount: parseInt(row.cancelCount) || 0,
-              completedCount: (parseInt(row.appointmentCount) || 0) - (parseInt(row.cancelCount) || 0),
+              noShowCount: parseInt(row.noShowCount) || 0,
+              completedCount: (parseInt(row.appointmentCount) || 0) - (parseInt(row.cancelCount) || 0) - (parseInt(row.noShowCount) || 0),
             },
             create: {
               clinicId,
@@ -252,7 +255,8 @@ export async function POST(req: NextRequest) {
               departmentType: "TOTAL",
               appointmentCount: parseInt(row.appointmentCount) || 0,
               cancelCount: parseInt(row.cancelCount) || 0,
-              completedCount: (parseInt(row.appointmentCount) || 0) - (parseInt(row.cancelCount) || 0),
+              noShowCount: parseInt(row.noShowCount) || 0,
+              completedCount: (parseInt(row.appointmentCount) || 0) - (parseInt(row.cancelCount) || 0) - (parseInt(row.noShowCount) || 0),
             },
           });
         }
@@ -269,6 +273,7 @@ export async function POST(req: NextRequest) {
           advertisingCost: { code: "ADVERTISING", layer: "INDIRECT" },
           communicationCost: { code: "COMMUNICATION", layer: "INDIRECT" },
           consumablesCost: { code: "CONSUMABLES", layer: "INDIRECT" },
+          trainingCost: { code: "TRAINING", layer: "INDIRECT" },
           insurancePremium: { code: "MISCELLANEOUS", layer: "INDIRECT" },
           miscCost: { code: "MISCELLANEOUS", layer: "INDIRECT" },
         };
