@@ -313,16 +313,18 @@ export default function DashboardPage() {
                   <CardTitle>収益性指標推移</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {/* 粗利益率は約91%と他の指標(20〜30%)から離れているため軸を分ける */}
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={trendData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="label" />
-                      <YAxis tickFormatter={(v) => `${v}%`} />
+                      <YAxis yAxisId="left" tickFormatter={(v) => `${v}%`} domain={[0, 40]} />
+                      <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v}%`} domain={[80, 100]} />
                       <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
                       <Legend />
-                      <Line type="monotone" dataKey="grossProfitRate" name="粗利益率" stroke={CHART_COLORS[0]} strokeWidth={2} />
-                      <Line type="monotone" dataKey="operatingProfitRate" name="営業利益率" stroke={CHART_COLORS[1]} strokeWidth={2} />
-                      <Line type="monotone" dataKey="laborCostRatio" name="人件費率" stroke={CHART_COLORS[3]} strokeWidth={2} />
+                      <Line yAxisId="left" type="monotone" dataKey="operatingProfitRate" name="営業利益率（左軸）" stroke={CHART_COLORS[1]} strokeWidth={2} />
+                      <Line yAxisId="left" type="monotone" dataKey="laborCostRatio" name="人件費率（左軸）" stroke={CHART_COLORS[3]} strokeWidth={2} />
+                      <Line yAxisId="right" type="monotone" dataKey="grossProfitRate" name="粗利益率（右軸）" stroke={CHART_COLORS[0]} strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
                 </CardContent>

@@ -150,17 +150,20 @@ export default function FinanceAnalysisPage() {
                   <Bar dataKey="homeVisitRevenue" name="訪問" fill={COLORS[3]} stackId="a" />
                 </BarChart>
               </ResponsiveContainer>
-              <ResponsiveContainer width="100%" height={260}>
+              {/* 粗利益率は約91%と他の指標(20〜30%)から離れており、同一軸だと
+                  営業利益率・自費率・人件費率が25%付近で重なって読めなくなるため軸を分ける */}
+              <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={trendData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="label" />
-                  <YAxis unit="%" />
+                  <YAxis yAxisId="left" unit="%" domain={[0, 40]} />
+                  <YAxis yAxisId="right" orientation="right" unit="%" domain={[80, 100]} />
                   <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
                   <Legend />
-                  <Line type="monotone" dataKey="grossProfitRate" name="粗利益率" stroke={COLORS[0]} strokeWidth={2} />
-                  <Line type="monotone" dataKey="operatingProfitRate" name="営業利益率" stroke={COLORS[1]} strokeWidth={2} />
-                  <Line type="monotone" dataKey="selfPayRatio" name="自費率" stroke={COLORS[2]} strokeWidth={2} />
-                  <Line type="monotone" dataKey="laborCostRatio" name="人件費率" stroke={COLORS[3]} strokeWidth={2} strokeDasharray="4 2" />
+                  <Line yAxisId="left" type="monotone" dataKey="operatingProfitRate" name="営業利益率（左軸）" stroke={COLORS[1]} strokeWidth={2} />
+                  <Line yAxisId="left" type="monotone" dataKey="selfPayRatio" name="自費率（左軸）" stroke={COLORS[2]} strokeWidth={2} />
+                  <Line yAxisId="left" type="monotone" dataKey="laborCostRatio" name="人件費率（左軸）" stroke={COLORS[3]} strokeWidth={2} strokeDasharray="4 2" />
+                  <Line yAxisId="right" type="monotone" dataKey="grossProfitRate" name="粗利益率（右軸）" stroke={COLORS[0]} strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </div>

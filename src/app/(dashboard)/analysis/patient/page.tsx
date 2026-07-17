@@ -153,17 +153,20 @@ export default function PatientAnalysisPage() {
                   <Bar dataKey="uniquePatientCount" name="実患者数" fill="#3B82F6" />
                 </BarChart>
               </ResponsiveContainer>
-              <ResponsiveContainer width="100%" height={260}>
+              {/* 再来率は約90%と他の指標(3〜32%)から離れており、同一軸だとメンテ移行率・
+                  キャンセル率・中断率が下部に密集して読めなくなるため軸を分ける */}
+              <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={trendData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="label" />
-                  <YAxis unit="%" />
+                  <YAxis yAxisId="left" unit="%" domain={[0, 40]} />
+                  <YAxis yAxisId="right" orientation="right" unit="%" domain={[70, 100]} />
                   <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
                   <Legend />
-                  <Line type="monotone" dataKey="returnRate" name="再来率" stroke="#3B82F6" strokeWidth={2} />
-                  <Line type="monotone" dataKey="maintenanceTransitionRate" name="メンテ移行率" stroke="#10B981" strokeWidth={2} />
-                  <Line type="monotone" dataKey="cancelRate" name="キャンセル率" stroke="#F59E0B" strokeWidth={2} />
-                  <Line type="monotone" dataKey="discontinuedRate" name="中断率" stroke="#EF4444" strokeWidth={2} />
+                  <Line yAxisId="left" type="monotone" dataKey="maintenanceTransitionRate" name="メンテ移行率（左軸）" stroke="#10B981" strokeWidth={2} />
+                  <Line yAxisId="left" type="monotone" dataKey="cancelRate" name="キャンセル率（左軸）" stroke="#F59E0B" strokeWidth={2} />
+                  <Line yAxisId="left" type="monotone" dataKey="discontinuedRate" name="中断率（左軸）" stroke="#EF4444" strokeWidth={2} />
+                  <Line yAxisId="right" type="monotone" dataKey="returnRate" name="再来率（右軸）" stroke="#3B82F6" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
               <div>
