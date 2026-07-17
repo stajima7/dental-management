@@ -265,6 +265,7 @@ export async function POST(req: NextRequest) {
 
         // コストデータの保存
         const costMapping: Record<string, { code: string; layer: "DIRECT" | "INDIRECT" }> = {
+          directorCompensation: { code: "DIRECTOR_COMPENSATION", layer: "INDIRECT" },
           laborCost: { code: "LABOR", layer: "INDIRECT" },
           materialCost: { code: "DIRECT_MATERIAL", layer: "DIRECT" },
           labFee: { code: "LAB_FEE", layer: "DIRECT" },
@@ -276,7 +277,7 @@ export async function POST(req: NextRequest) {
           communicationCost: { code: "COMMUNICATION", layer: "INDIRECT" },
           consumablesCost: { code: "CONSUMABLES", layer: "INDIRECT" },
           trainingCost: { code: "TRAINING", layer: "INDIRECT" },
-          insurancePremium: { code: "MISCELLANEOUS", layer: "INDIRECT" },
+          insurancePremium: { code: "INSURANCE_PREMIUM", layer: "INDIRECT" },
           miscCost: { code: "MISCELLANEOUS", layer: "INDIRECT" },
         };
 

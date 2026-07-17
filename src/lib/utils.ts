@@ -17,5 +17,7 @@ export function formatPercent(value: number): string {
 }
 
 export function formatNumber(value: number): string {
-  return value.toLocaleString()
+  // FTEや1日平均来院数など小数を持つ指標があるため、小数第1位までに丸める。
+  // 患者数などの整数はそのまま整数で表示される。
+  return value.toLocaleString(undefined, { maximumFractionDigits: 1 })
 }

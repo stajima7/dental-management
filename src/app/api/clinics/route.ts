@@ -72,10 +72,22 @@ export async function GET() {
       },
     });
 
-    const clinics = clinicUsers.map((cu: any) => ({
+    // 各医院で実績データが存在する最新月（画面の初期表示月に使う）
+    const latestMonths = await Promise.all(
+      clinicUsers.map((cu: any) =>
+        prisma.monthlyRevenue.findFirst({
+          where: { clinicId: cu.clinicId },
+          orderBy: { yearMonth: "desc" },
+          select: { yearMonth: true },
+        })
+      )
+    );
+
+    const clinics = clinicUsers.map((cu: any, i: number) => ({
       ...cu.clinic,
       role: cu.role,
       profile: cu.clinic.profiles[0] || null,
+      latestYearMonth: latestMonths[i]?.yearMonth || null,
     }));
 
     return NextResponse.json(clinics);

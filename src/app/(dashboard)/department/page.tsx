@@ -49,9 +49,10 @@ export default function DepartmentPage() {
     fetch("/api/clinics")
       .then((res) => res.json())
       .then((d) => {
-        if (Array.isArray(d)) {
+        if (Array.isArray(d) && d.length > 0) {
           setClinics(d);
-          if (d.length > 0) setSelectedClinicId(d[0].id);
+          setSelectedClinicId(d[0].id);
+          if (d[0].latestYearMonth) setYearMonth(d[0].latestYearMonth);
         }
       });
   }, []);

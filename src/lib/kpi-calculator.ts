@@ -71,18 +71,29 @@ export const KPI_DEFINITIONS: Record<string, {
   totalPatientCount:       { name: "延患者数",           unit: "人",  category: "患者",   format: "number",   higherIsBetter: true },
   uniquePatientCount:      { name: "実患者数",           unit: "人",  category: "患者",   format: "number",   higherIsBetter: true },
   newPatientCount:         { name: "新患数",             unit: "人",  category: "患者",   format: "number",   higherIsBetter: true,  benchmark: 20 },
+  returnPatientCount:      { name: "再来患者数",         unit: "人",  category: "患者",   format: "number",   higherIsBetter: true },
+  appointmentCount:        { name: "予約数",             unit: "件",  category: "患者",   format: "number",   higherIsBetter: true },
+  cancelCount:             { name: "キャンセル数",       unit: "件",  category: "患者",   format: "number",   higherIsBetter: false },
   returnRate:              { name: "再来率",             unit: "%",   category: "患者",   format: "percent",  higherIsBetter: true,  benchmark: 80 },
   discontinuedRate:        { name: "中断率",             unit: "%",   category: "患者",   format: "percent",  higherIsBetter: false, benchmark: 5 },
   maintenanceTransitionRate: { name: "メンテ移行率",     unit: "%",   category: "患者",   format: "percent",  higherIsBetter: true,  benchmark: 30 },
   cancelRate:              { name: "キャンセル率",       unit: "%",   category: "患者",   format: "percent",  higherIsBetter: false, benchmark: 10 },
   revenuePerUnit:          { name: "ユニット1台あたり売上",     unit: "円", category: "生産性", format: "currency", higherIsBetter: true, benchmark: 1500000 },
   revenuePerActiveUnit:    { name: "稼働ユニット1台あたり売上", unit: "円", category: "生産性", format: "currency", higherIsBetter: true },
+  dentistFte:              { name: "歯科医師FTE",       unit: "人",  category: "人員",   format: "decimal",  higherIsBetter: true },
+  hygienistFte:            { name: "衛生士FTE",         unit: "人",  category: "人員",   format: "decimal",  higherIsBetter: true },
   revenuePerDentist:       { name: "Dr1人あたり売上",    unit: "円",  category: "生産性", format: "currency", higherIsBetter: true },
   revenuePerHygienist:     { name: "DH1人あたり売上",    unit: "円",  category: "生産性", format: "currency", higherIsBetter: true },
   patientsPerDay:          { name: "1日平均来院数",      unit: "人",  category: "生産性", format: "decimal",  higherIsBetter: true },
   revenuePerPatient:       { name: "患者単価",           unit: "円",  category: "生産性", format: "currency", higherIsBetter: true },
   laborCostRatio:          { name: "人件費率",           unit: "%",   category: "コスト", format: "percent",  higherIsBetter: false, benchmark: 25 },
   materialCostRatio:       { name: "材料費率",           unit: "%",   category: "コスト", format: "percent",  higherIsBetter: false, benchmark: 8 },
+  totalCosts:              { name: "コスト合計",         unit: "円",  category: "コスト", format: "currency", higherIsBetter: false },
+  directCost:              { name: "直接原価",           unit: "円",  category: "コスト", format: "currency", higherIsBetter: false },
+  directAssignedCost:      { name: "直接計上費",         unit: "円",  category: "コスト", format: "currency", higherIsBetter: false },
+  indirectCost:            { name: "間接費",             unit: "円",  category: "コスト", format: "currency", higherIsBetter: false },
+  laborCost:               { name: "人件費",             unit: "円",  category: "コスト", format: "currency", higherIsBetter: false },
+  materialCost:            { name: "材料費",             unit: "円",  category: "コスト", format: "currency", higherIsBetter: false },
   grossProfit:             { name: "売上総利益",         unit: "円",  category: "収益",   format: "currency", higherIsBetter: true },
   grossProfitRate:         { name: "売上総利益率",       unit: "%",   category: "収益",   format: "percent",  higherIsBetter: true,  benchmark: 70 },
   operatingProfit:         { name: "営業利益",           unit: "円",  category: "収益",   format: "currency", higherIsBetter: true },
@@ -145,6 +156,7 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
   push("totalPatientCount", totalPatientCount);
   push("uniquePatientCount", uniquePatientCount);
   push("newPatientCount", newPatientCount);
+  push("returnPatientCount", returnPatientCount);
 
   // 再来率
   const returnRate = uniquePatientCount > 0 ? (returnPatientCount / uniquePatientCount) * 100 : 0;
@@ -163,6 +175,9 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
   const appointmentCount = totalAppts.reduce((s, a) => s + a.appointmentCount, 0);
   const cancelCount = totalAppts.reduce((s, a) => s + a.cancelCount, 0);
 
+  push("appointmentCount", appointmentCount);
+  push("cancelCount", cancelCount);
+
   // キャンセル率
   const cancelRate = appointmentCount > 0 ? (cancelCount / appointmentCount) * 100 : 0;
   push("cancelRate", cancelRate);
@@ -177,6 +192,8 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
   // FTE計算（PT=0.5）
   const dentistFte = profile.fulltimeDentistCount + profile.parttimeDentistCount * 0.5;
   const hygienistFte = profile.fulltimeHygienistCount + profile.parttimeHygienistCount * 0.5;
+  push("dentistFte", dentistFte);
+  push("hygienistFte", hygienistFte);
 
   const revenuePerDentist = dentistFte > 0 ? effectiveTotalRevenue / dentistFte : 0;
   push("revenuePerDentist", revenuePerDentist);
@@ -206,6 +223,14 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
     .reduce((s, c) => s + c.amount, 0);
   const directCosts = data.costs.filter(isDirectCost).reduce((s, c) => s + c.amount, 0);
   const directAssignedCosts = data.costs.filter(isDirectAssigned).reduce((s, c) => s + c.amount, 0);
+  const indirectCosts = totalCosts - directCosts - directAssignedCosts;
+
+  push("totalCosts", totalCosts);
+  push("directCost", directCosts);
+  push("directAssignedCost", directAssignedCosts);
+  push("indirectCost", indirectCosts);
+  push("laborCost", laborCost);
+  push("materialCost", materialCost);
 
   // 人件費率
   const laborCostRatio = effectiveTotalRevenue > 0 ? (laborCost / effectiveTotalRevenue) * 100 : 0;

@@ -62,8 +62,9 @@ export default function DashboardPage() {
             setNoClinic(true);
           } else {
             setClinics(data);
-            if (data.length > 0 && !selectedClinicId) {
+            if (!selectedClinicId) {
               setSelectedClinicId(data[0].id);
+              if (data[0].latestYearMonth) setYearMonth(data[0].latestYearMonth);
             }
           }
         }

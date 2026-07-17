@@ -23,7 +23,10 @@ export default function FinanceAnalysisPage() {
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
-      if (Array.isArray(d) && d.length > 0) setSelectedClinicId(d[0].id);
+      if (Array.isArray(d) && d.length > 0) {
+        setSelectedClinicId(d[0].id);
+        if (d[0].latestYearMonth) setYearMonth(d[0].latestYearMonth);
+      }
     });
   }, []);
 
@@ -80,8 +83,9 @@ export default function FinanceAnalysisPage() {
           <CardContent>
             <div className="space-y-3">
               {[
-                ["総売上", "totalRevenue"], ["直接費合計", "totalCosts"], ["粗利益", "grossProfit"],
-                ["人件費", "laborCost"], ["営業利益", "operatingProfit"],
+                ["総売上", "totalRevenue"], ["直接原価", "directCost"], ["粗利益", "grossProfit"],
+                ["直接計上費", "directAssignedCost"], ["間接費", "indirectCost"],
+                ["うち人件費", "laborCost"], ["営業利益", "operatingProfit"],
               ].map(([label, code]) => (
                 <div key={code} className="flex justify-between py-2 border-b">
                   <span className="text-sm text-gray-600">{label}</span>

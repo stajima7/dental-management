@@ -9,6 +9,9 @@ export const DEPARTMENT_TYPES = {
 } as const
 
 export const COST_ITEMS = {
+  // 役員報酬は人件費率(laborCostRatio)には含めない。医療法人のPLでは
+  // スタッフ人件費と分けて管理するのが通例のため。
+  DIRECTOR_COMPENSATION: { code: 'DIRECTOR_COMPENSATION', name: '役員報酬', isIndirect: true },
   LABOR: { code: 'LABOR', name: '人件費', isIndirect: true },
   RECEPTION_LABOR: { code: 'RECEPTION_LABOR', name: '受付人件費', isIndirect: true },
   COMMON_STAFF_LABOR: { code: 'COMMON_STAFF_LABOR', name: '共通スタッフ人件費', isIndirect: true },
@@ -22,6 +25,8 @@ export const COST_ITEMS = {
   SYSTEM_FEE: { code: 'SYSTEM_FEE', name: 'システム利用料', isIndirect: true },
   ADVERTISING: { code: 'ADVERTISING', name: '広告宣伝費', isIndirect: true },
   CONSUMABLES: { code: 'CONSUMABLES', name: '消耗品費', isIndirect: true },
+  TRAINING: { code: 'TRAINING', name: '研修費', isIndirect: true },
+  INSURANCE_PREMIUM: { code: 'INSURANCE_PREMIUM', name: '保険料', isIndirect: true },
   REPAIR: { code: 'REPAIR', name: '修繕費', isIndirect: true },
   DEPRECIATION: { code: 'DEPRECIATION', name: '減価償却費', isIndirect: true },
   MISCELLANEOUS: { code: 'MISCELLANEOUS', name: '雑費', isIndirect: true },
@@ -67,6 +72,7 @@ export const BENCHMARKS = {
 
 export const CSV_MAPPING_LABELS: Record<string, string> = {
   yearMonth: '年月',
+  directorCompensation: '役員報酬',
   totalRevenue: '合計売上',
   insuranceRevenue: '保険診療売上',
   selfPayRevenue: '自費診療売上',
@@ -94,5 +100,6 @@ export const CSV_MAPPING_LABELS: Record<string, string> = {
   communicationCost: '通信費',
   consumablesCost: '消耗品費',
   trainingCost: '研修費',
+  insurancePremium: '保険料',
   miscCost: '雑費',
 }

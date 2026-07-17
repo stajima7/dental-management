@@ -62,7 +62,11 @@ export default function ActionPage() {
 
   useEffect(() => {
     fetch("/api/clinics").then((r) => r.json()).then((data) => {
-      if (Array.isArray(data)) { setClinics(data); if (data.length > 0) setSelectedClinicId(data[0].id); }
+      if (Array.isArray(data) && data.length > 0) {
+        setClinics(data);
+        setSelectedClinicId(data[0].id);
+        if (data[0].latestYearMonth) setYearMonth(data[0].latestYearMonth);
+      }
     });
   }, []);
 

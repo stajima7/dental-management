@@ -19,7 +19,10 @@ export default function PatientAnalysisPage() {
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
-      if (Array.isArray(d) && d.length > 0) setSelectedClinicId(d[0].id);
+      if (Array.isArray(d) && d.length > 0) {
+        setSelectedClinicId(d[0].id);
+        if (d[0].latestYearMonth) setYearMonth(d[0].latestYearMonth);
+      }
     });
   }, []);
 

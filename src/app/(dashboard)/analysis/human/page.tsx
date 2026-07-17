@@ -27,7 +27,11 @@ export default function HumanAnalysisPage() {
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
-      if (Array.isArray(d)) { setClinics(d); if (d.length > 0) setSelectedClinicId(d[0].id); }
+      if (Array.isArray(d) && d.length > 0) {
+        setClinics(d);
+        setSelectedClinicId(d[0].id);
+        if (d[0].latestYearMonth) setYearMonth(d[0].latestYearMonth);
+      }
     });
   }, []);
 
