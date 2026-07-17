@@ -8,9 +8,10 @@ import { getKpiStatus } from "@/lib/kpi-calculator";
 import { PeriodSelector } from "@/components/ui/period-selector";
 import { Period, DEFAULT_PERIOD } from "@/lib/period";
 import { useTrend } from "@/lib/use-trend";
+import type { SeasonalityResult } from "@/lib/seasonality";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceLine,
 } from "recharts";
 
 interface KpiData { kpiCode: string; kpiValue: number; }
@@ -26,6 +27,7 @@ export default function FinanceAnalysisPage() {
   const [kpis, setKpis] = useState<KpiData[]>([]);
   const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
   const { rows: trendData } = useTrend(selectedClinicId, period, yearMonth);
+  const [seasonality, setSeasonality] = useState<SeasonalityResult | null>(null);
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
@@ -41,6 +43,15 @@ export default function FinanceAnalysisPage() {
     const res = await fetch(`/api/kpi?clinicId=${selectedClinicId}&yearMonth=${yearMonth}`);
     if (res.ok) { const d = await res.json(); setKpis(Array.isArray(d) ? d : []); }
   }, [selectedClinicId, yearMonth]);
+
+  // 季節性は保有する全月から算出するため、表示月には依存しない
+  useEffect(() => {
+    if (!selectedClinicId) return;
+    fetch(`/api/seasonality?clinicId=${selectedClinicId}&kpiCode=totalRevenue`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => setSeasonality(d))
+      .catch(() => setSeasonality(null));
+  }, [selectedClinicId]);
 
   useEffect(() => { loadData(); }, [loadData]);
   const getKpi = (code: string) => kpis.find(k => k.kpiCode === code)?.kpiValue || 0;
@@ -104,6 +115,50 @@ export default function FinanceAnalysisPage() {
           </CardContent>
         </Card>
       </div>
+
+      {seasonality && (
+        <Card>
+          <CardHeader><CardTitle>売上の季節性</CardTitle></CardHeader>
+          <CardContent>
+            {!seasonality.available ? (
+              <p className="text-sm text-gray-500 py-4">{seasonality.reason}</p>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={seasonality.monthlyIndex.map(m => ({ ...m, label: `${m.month}月`, pct: (m.index - 1) * 100 }))}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="label" />
+                      <YAxis unit="%" />
+                      <Tooltip formatter={(v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(1)}%`} labelFormatter={(l) => `${l}（年間平均との差）`} />
+                      <ReferenceLine y={0} stroke="#6B7280" />
+                      <Bar dataKey="pct" name="年間平均との差">
+                        {seasonality.monthlyIndex.map((m, i) => (
+                          <Cell key={i} fill={m.index >= 1 ? "#10B981" : "#EF4444"} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div>
+                  <ul className="space-y-2">
+                    {seasonality.findings.map((f, i) => (
+                      <li key={i} className="text-sm text-gray-700 flex gap-2">
+                        <span className="text-blue-600 shrink-0">•</span>
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-gray-500 mt-4 leading-relaxed">
+                    保有する全月のデータから算出しています。12ヶ月の移動平均で成長・衰退のトレンドを除いたうえで、
+                    暦月ごとの平均を取っています（トレンドを除かないと、売上が伸びている医院では年の後半の月ほど高く出てしまうためです）。
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader><CardTitle>損益分岐点</CardTitle></CardHeader>
