@@ -30,6 +30,7 @@ const KPI_CODES_USED_BY_UI = [
   "insurancePoints", "revenuePerPoint", "pointDeductionRate",
   "noShowCount", "noShowRate", "noShowLoss",
   "totalStaffFte", "laborHoursTotal", "revenuePerLaborHour", "overtimeRatio",
+  "marginalProfitRate", "breakEvenRevenue", "safetyMarginRate", "breakEvenChairUtilization", "breakEvenPatientCount",
 ];
 
 async function main() {
@@ -131,8 +132,24 @@ async function main() {
   }
   if (deptNg === 0) ok(`全${months.length}ヶ月で売上・営業利益とも一致`);
 
-  // ---------- 7. 経営指標が実在の歯科医院として妥当な水準か ----------
-  console.log("\n7. 主要指標の水準（最新月）");
+  // ---------- 7. 損益分岐点が正しいか（BEP売上なら利益0になるはず）----------
+  console.log("\n7. 損益分岐点: BEP売上で営業利益が0になるか（検算）");
+  let bepNg = 0;
+  for (const ym of months) {
+    const k = await prisma.monthlyKpis.findMany({ where: { clinicId, yearMonth: ym } });
+    const val = (code: string) => k.find((x) => x.kpiCode === code)?.kpiValue ?? 0;
+    const fixedCost = val("directAssignedCost") + val("indirectCost");
+    // BEP売上における限界利益が固定費とちょうど釣り合えば利益0
+    const profitAtBep = (val("breakEvenRevenue") * val("marginalProfitRate")) / 100 - fixedCost;
+    if (!near(profitAtBep, 0, 1)) {
+      fail(`${ym}`, `BEP売上での営業利益が${yen(profitAtBep)}（0であるべき）`);
+      bepNg++;
+    }
+  }
+  if (bepNg === 0) ok(`全${months.length}ヶ月で検算一致`);
+
+  // ---------- 8. 経営指標が実在の歯科医院として妥当な水準か ----------
+  console.log("\n8. 主要指標の水準（最新月）");
   const latest = months[months.length - 1];
   const k = await prisma.monthlyKpis.findMany({ where: { clinicId, yearMonth: latest } });
   const v = (code: string) => k.find((x) => x.kpiCode === code)?.kpiValue ?? 0;
@@ -160,6 +177,11 @@ async function main() {
     ["無断キャンセル率", v("noShowRate").toFixed(1) + "%", "BM2%以下"],
     ["人時生産性", yen(v("revenuePerLaborHour")), "残業込みの実労働時間あたり"],
     ["残業比率", v("overtimeRatio").toFixed(1) + "%", "BM10%以下"],
+    ["限界利益率", v("marginalProfitRate").toFixed(1) + "%", "変動費=直接原価"],
+    ["損益分岐点売上", yen(v("breakEvenRevenue")), "-"],
+    ["安全余裕率", v("safetyMarginRate").toFixed(1) + "%", "BM20%以上"],
+    ["BEPチェア稼働率", v("breakEvenChairUtilization").toFixed(1) + "%", `現在${v("chairUtilization").toFixed(1)}%`],
+    ["BEP延患者数", Math.round(v("breakEvenPatientCount")) + "人", `現在${Math.round(v("totalPatientCount"))}人`],
   ];
   for (const [name, value, bm] of rows) console.log(`     ${name.padEnd(16)} ${value.padStart(14)}   ${bm}`);
 

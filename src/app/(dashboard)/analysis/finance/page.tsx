@@ -106,6 +106,37 @@ export default function FinanceAnalysisPage() {
       </div>
 
       <Card>
+        <CardHeader><CardTitle>損益分岐点</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <KpiCard label="損益分岐点売上" value={formatCurrency(getKpi("breakEvenRevenue"))} status="neutral" />
+            <KpiCard
+              label="安全余裕率"
+              value={formatPercent(getKpi("safetyMarginRate"))}
+              status={statusMap(getKpiStatus("safetyMarginRate", getKpi("safetyMarginRate")))}
+            />
+            <KpiCard label="限界利益率" value={formatPercent(getKpi("marginalProfitRate"))} status="neutral" />
+            <KpiCard label="損益分岐点チェア稼働率" value={formatPercent(getKpi("breakEvenChairUtilization"))} status="neutral" />
+          </div>
+
+          <div className="mt-4 p-4 rounded bg-blue-50">
+            <p className="text-sm text-blue-900 leading-relaxed">
+              現在のチェア稼働率は<strong>{formatPercent(getKpi("chairUtilization"))}</strong>で、
+              <strong>{formatPercent(getKpi("breakEvenChairUtilization"))}</strong>を下回ると赤字になります
+              （余裕は<strong>{(getKpi("chairUtilization") - getKpi("breakEvenChairUtilization")).toFixed(1)}ポイント</strong>）。<br />
+              延患者数では<strong>{formatNumber(getKpi("totalPatientCount"))}人</strong>に対し、
+              <strong>{formatNumber(getKpi("breakEvenPatientCount"))}人</strong>が損益分岐点です。
+            </p>
+          </div>
+
+          <p className="text-xs text-gray-500 mt-3 leading-relaxed">
+            変動費を直接原価（材料費・技工料・外注費）、固定費を直接計上費と間接費（人件費・家賃・リース・役員報酬など）として算出しています。
+            チェア稼働率・患者数への換算は、売上が稼働に比例するとみなした近似です。
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle>保険請求の精度</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

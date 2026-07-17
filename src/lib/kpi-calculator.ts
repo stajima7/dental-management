@@ -140,6 +140,11 @@ export const KPI_DEFINITIONS: Record<string, {
   preAllocationProfitRate: { name: "配賦前利益率",       unit: "%",   category: "収益",   format: "percent",  higherIsBetter: true },
   postAllocationProfit:    { name: "配賦後営業利益",     unit: "円",  category: "収益",   format: "currency", higherIsBetter: true },
   postAllocationProfitRate:{ name: "配賦後営業利益率",   unit: "%",   category: "収益",   format: "percent",  higherIsBetter: true },
+  marginalProfitRate:      { name: "限界利益率",         unit: "%",   category: "損益分岐", format: "percent",  higherIsBetter: true },
+  breakEvenRevenue:        { name: "損益分岐点売上",     unit: "円",  category: "損益分岐", format: "currency", higherIsBetter: false },
+  safetyMarginRate:        { name: "安全余裕率",         unit: "%",   category: "損益分岐", format: "percent",  higherIsBetter: true,  benchmark: 20 },
+  breakEvenChairUtilization: { name: "損益分岐点チェア稼働率", unit: "%", category: "損益分岐", format: "percent", higherIsBetter: false },
+  breakEvenPatientCount:   { name: "損益分岐点患者数",   unit: "人",  category: "損益分岐", format: "number",   higherIsBetter: false },
 };
 
 export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResult[] {
@@ -388,6 +393,34 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
   // 配賦後営業利益（＝営業利益と同じ。部門別の場合は異なる）
   push("postAllocationProfit", operatingProfit);
   push("postAllocationProfitRate", operatingProfitRate);
+
+  // --- 損益分岐点 ---
+  // 固変分解: 変動費=直接原価（材料費・技工料は患者数に連動して増える）
+  //           固定費=直接計上費+間接費（人件費・家賃・リース・役員報酬は稼働に連動しない）
+  const variableCost = directCosts;
+  const fixedCost = directAssignedCosts + indirectCosts;
+
+  const marginalProfitRate = effectiveTotalRevenue > 0
+    ? ((effectiveTotalRevenue - variableCost) / effectiveTotalRevenue) * 100
+    : 0;
+  push("marginalProfitRate", marginalProfitRate);
+
+  // 損益分岐点売上 = 固定費 ÷ 限界利益率
+  const breakEvenRevenue = marginalProfitRate > 0 ? fixedCost / (marginalProfitRate / 100) : 0;
+  push("breakEvenRevenue", breakEvenRevenue);
+
+  // 安全余裕率 = 売上がどれだけ落ちても黒字を保てるか
+  push("safetyMarginRate",
+    effectiveTotalRevenue > 0 ? ((effectiveTotalRevenue - breakEvenRevenue) / effectiveTotalRevenue) * 100 : 0);
+
+  // 損益分岐点を「チェア稼働率が何%まで落ちたら赤字か」に翻訳する。
+  // 売上がチェア稼働に比例するとみなした近似で、現場が動ける単位に直すのが狙い。
+  push("breakEvenChairUtilization",
+    effectiveTotalRevenue > 0 ? chairUtilization * (breakEvenRevenue / effectiveTotalRevenue) : 0);
+
+  // 同じく「延患者数が何人を下回ったら赤字か」
+  push("breakEvenPatientCount",
+    revenuePerPatient > 0 ? breakEvenRevenue / revenuePerPatient : 0);
 
   return kpis;
 }
