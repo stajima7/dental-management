@@ -87,6 +87,10 @@ export const KPI_DEFINITIONS: Record<string, {
   discontinuedRate:        { name: "中断率",             unit: "%",   category: "患者",   format: "percent",  higherIsBetter: false, benchmark: 5 },
   maintenanceTransitionRate: { name: "メンテ移行率",     unit: "%",   category: "患者",   format: "percent",  higherIsBetter: true,  benchmark: 30 },
   cancelRate:              { name: "キャンセル率",       unit: "%",   category: "患者",   format: "percent",  higherIsBetter: false, benchmark: 10 },
+  costPerAcquisition:      { name: "新患獲得単価",       unit: "円",  category: "患者",   format: "currency", higherIsBetter: false, benchmark: 10000 },
+  revenuePerNewPatient:    { name: "新患1人あたり生涯売上", unit: "円", category: "患者", format: "currency", higherIsBetter: true },
+  ltvToCpaRatio:           { name: "LTV/獲得単価比",     unit: "倍",  category: "患者",   format: "decimal",  higherIsBetter: true,  benchmark: 3 },
+  avgRetentionMonths:      { name: "平均継続月数",       unit: "ヶ月", category: "患者",  format: "decimal",  higherIsBetter: true },
   revenuePerUnit:          { name: "ユニット1台あたり売上",     unit: "円", category: "生産性", format: "currency", higherIsBetter: true, benchmark: 1500000 },
   revenuePerActiveUnit:    { name: "稼働ユニット1台あたり売上", unit: "円", category: "生産性", format: "currency", higherIsBetter: true },
   chairUtilization:        { name: "チェア稼働率",       unit: "%",   category: "生産性", format: "percent",  higherIsBetter: true,  benchmark: 75 },
@@ -277,6 +281,29 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
   // 材料費率
   const materialCostRatio = effectiveTotalRevenue > 0 ? (materialCost / effectiveTotalRevenue) * 100 : 0;
   push("materialCostRatio", materialCostRatio);
+
+  // --- 新患獲得効率 ---
+  // 広告費のうち何円で新患1人を獲得できているか。紹介・通りがかりの新患も
+  // 分母に含むため、広告経由のみの獲得単価より低く出る（いわゆるブレンドCPA）。
+  const advertisingCost = data.costs
+    .filter((c) => c.costItemCode === "ADVERTISING")
+    .reduce((s, c) => s + c.amount, 0);
+  const costPerAcquisition = newPatientCount > 0 ? advertisingCost / newPatientCount : 0;
+  push("costPerAcquisition", costPerAcquisition);
+
+  // 患者個人の通院履歴を持たないため、定常状態では
+  // 「月商 ÷ 新患数」が新患1人あたりの生涯売上に等しくなる関係を使って推計する。
+  // 患者数が急増・急減している時期は実態から乖離する。
+  const revenuePerNewPatient = newPatientCount > 0 ? effectiveTotalRevenue / newPatientCount : 0;
+  push("revenuePerNewPatient", revenuePerNewPatient);
+
+  // 獲得コストの何倍を回収できているか
+  const ltvToCpaRatio = costPerAcquisition > 0 ? revenuePerNewPatient / costPerAcquisition : 0;
+  push("ltvToCpaRatio", ltvToCpaRatio);
+
+  // 月次の中断率の逆数 = 平均して何ヶ月通い続けるか
+  const avgRetentionMonths = discontinuedRate > 0 ? 100 / discontinuedRate : 0;
+  push("avgRetentionMonths", avgRetentionMonths);
 
   // 売上総利益 = 売上 - 直接原価
   const grossProfit = effectiveTotalRevenue - directCosts;

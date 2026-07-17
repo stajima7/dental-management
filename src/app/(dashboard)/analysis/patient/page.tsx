@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { formatNumber, formatPercent } from "@/lib/utils";
+import { formatNumber, formatPercent, formatCurrency } from "@/lib/utils";
 import { getKpiStatus } from "@/lib/kpi-calculator";
 import { PeriodSelector } from "@/components/ui/period-selector";
 import { Period, DEFAULT_PERIOD } from "@/lib/period";
@@ -102,6 +102,30 @@ export default function PatientAnalysisPage() {
       </div>
 
       <Card>
+        <CardHeader><CardTitle>新患獲得効率</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <KpiCard
+              label="新患獲得単価"
+              value={formatCurrency(getKpi("costPerAcquisition"))}
+              status={statusMap(getKpiStatus("costPerAcquisition", getKpi("costPerAcquisition")))}
+            />
+            <KpiCard label="新患1人あたり生涯売上" value={formatCurrency(getKpi("revenuePerNewPatient"))} status="neutral" />
+            <KpiCard
+              label="LTV/獲得単価比"
+              value={`${getKpi("ltvToCpaRatio").toFixed(1)}倍`}
+              status={statusMap(getKpiStatus("ltvToCpaRatio", getKpi("ltvToCpaRatio")))}
+            />
+            <KpiCard label="平均継続月数" value={`${getKpi("avgRetentionMonths").toFixed(1)}ヶ月`} status="neutral" />
+          </div>
+          <p className="text-xs text-gray-500 mt-4 leading-relaxed">
+            新患獲得単価は「広告費 ÷ 新患数」です。紹介・通りがかりの新患も分母に含むため、広告経由のみの獲得単価より低く出ます。<br />
+            生涯売上は患者ごとの通院履歴を持たないため、「月商 ÷ 新患数」による推計値です（定常状態では新患1人が生涯にもたらす売上と一致します）。患者数が急増・急減している時期は実態から乖離します。
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle>患者動向の推移</CardTitle>
@@ -135,6 +159,22 @@ export default function PatientAnalysisPage() {
                   <Line type="monotone" dataKey="discontinuedRate" name="中断率" stroke="#EF4444" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">新患獲得効率の推移</p>
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" />
+                    <YAxis yAxisId="left" tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
+                    <YAxis yAxisId="right" orientation="right" unit="倍" />
+                    <Tooltip formatter={(v, name) => name === "LTV/獲得単価比" ? `${Number(v).toFixed(1)}倍` : formatCurrency(Number(v))} />
+                    <Legend />
+                    <Line yAxisId="left" type="monotone" dataKey="revenuePerNewPatient" name="新患1人あたり生涯売上" stroke="#10B981" strokeWidth={2} />
+                    <Line yAxisId="left" type="monotone" dataKey="costPerAcquisition" name="新患獲得単価" stroke="#EF4444" strokeWidth={2} />
+                    <Line yAxisId="right" type="monotone" dataKey="ltvToCpaRatio" name="LTV/獲得単価比" stroke="#8B5CF6" strokeWidth={2} strokeDasharray="4 2" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           ) : <p className="text-gray-500 text-center py-8">データがありません</p>}
         </CardContent>

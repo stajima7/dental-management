@@ -26,6 +26,7 @@ const KPI_CODES_USED_BY_UI = [
   "revenuePerDentist", "revenuePerHygienist", "revenuePerPatient", "revenuePerUnit",
   "selfPayRatio", "discontinuedRate", "materialCostRatio",
   "chairUtilization", "chairMinutesUsed", "chairMinutesAvailable", "revenuePerChairMinute", "idleChairLoss",
+  "costPerAcquisition", "revenuePerNewPatient", "ltvToCpaRatio", "avgRetentionMonths",
 ];
 
 async function main() {
@@ -147,6 +148,10 @@ async function main() {
     ["チェア稼働率", v("chairUtilization").toFixed(1) + "%", "BM75%（上限85%）"],
     ["チェア分単価", yen(v("revenuePerChairMinute")), "歯科の目安200〜400円"],
     ["空き枠損失額", yen(v("idleChairLoss")), "稼働率85%まで埋めた場合の増収余地"],
+    ["新患獲得単価", yen(v("costPerAcquisition")), "BM1万円以下"],
+    ["新患1人生涯売上", yen(v("revenuePerNewPatient")), "推計値（月商÷新患数）"],
+    ["LTV/獲得単価比", v("ltvToCpaRatio").toFixed(1) + "倍", "BM3倍以上"],
+    ["平均継続月数", v("avgRetentionMonths").toFixed(1) + "ヶ月", "中断率の逆数"],
   ];
   for (const [name, value, bm] of rows) console.log(`     ${name.padEnd(16)} ${value.padStart(14)}   ${bm}`);
 
