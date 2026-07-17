@@ -8,6 +8,8 @@ export const PERIOD_PRESETS = [
   { months: 3, label: "3ヶ月" },
   { months: 6, label: "6ヶ月" },
   { months: 12, label: "1年" },
+  { months: 24, label: "2年" },
+  { months: 36, label: "3年" },
 ] as const;
 
 export type Period =

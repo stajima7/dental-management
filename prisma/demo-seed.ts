@@ -1,8 +1,9 @@
 /**
  * デモデータ生成スクリプト
  *
- * 対象医院の月次データを全て削除し、過去1年分（12ヶ月）のデモデータを投入する。
+ * 対象医院の月次データを全て削除し、過去3年分（36ヶ月）のデモデータを投入する。
  * 金額は全て「円」単位。KPI・配賦結果もアプリ本体と同じロジックで事前計算して保存する。
+ * 3年かけて自費率・人件費率・営業利益率が改善していくストーリーになっている。
  *
  * 実行: npx tsx prisma/demo-seed.ts
  */
@@ -13,21 +14,50 @@ const prisma = new PrismaClient();
 
 const CLINIC_NAME = "ファイブ歯科";
 
-/** 2025-08 〜 2026-07 の12ヶ月 */
-const MONTHS = [
-  "2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01",
-  "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07",
-];
+const START_MONTH = "2023-08";
+const MONTH_COUNT = 36;
 
-/** 季節変動係数（お盆・年末年始・GWは落ち、年度末は伸びる） */
-const SEASON = [0.92, 0.99, 1.03, 1.02, 1.09, 0.94, 0.92, 1.06, 1.00, 0.97, 1.03, 1.01];
+const shiftMonth = (yearMonth: string, diff: number): string => {
+  const [y, m] = yearMonth.split("-").map(Number);
+  const d = new Date(y, m - 1 + diff, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+/** 2023-08 〜 2026-07 の36ヶ月 */
+const MONTHS = Array.from({ length: MONTH_COUNT }, (_, i) => shiftMonth(START_MONTH, i));
+
+const monthOf = (yearMonth: string) => Number(yearMonth.split("-")[1]);
+
+/** 暦月ごとの季節変動係数（お盆・年末年始・GWは落ち、年度末は伸びる） */
+const SEASON_BY_MONTH: Record<number, number> = {
+  1: 0.94, 2: 0.92, 3: 1.06, 4: 1.00, 5: 0.97, 6: 1.03,
+  7: 1.01, 8: 0.92, 9: 0.99, 10: 1.03, 11: 1.02, 12: 1.09,
+};
 /** 水道光熱費の季節係数（夏冬に上がる） */
-const UTIL_SEASON = [1.25, 1.05, 0.9, 0.9, 1.1, 1.3, 1.3, 1.05, 0.9, 0.9, 1.0, 1.2];
-/** 広告費（自費強化のため後半に増額） */
-const AD_COST = [150000, 150000, 180000, 180000, 200000, 160000, 160000, 220000, 240000, 240000, 260000, 260000];
+const UTIL_SEASON_BY_MONTH: Record<number, number> = {
+  1: 1.30, 2: 1.30, 3: 1.05, 4: 0.90, 5: 0.90, 6: 1.00,
+  7: 1.20, 8: 1.25, 9: 1.05, 10: 0.90, 11: 0.90, 12: 1.10,
+};
 
-const BASE_REVENUE = 11_200_000;
-const GROWTH_PER_MONTH = 0.011;
+const BASE_REVENUE = 9_300_000;
+const GROWTH_PER_MONTH = 0.0105;
+
+/**
+ * 3年かけて経営が改善していくストーリーを表現するため、主要な比率を
+ * i=0(2023-08) から i=35(2026-07) にかけて直線的に動かす。
+ */
+const lerp = (i: number, start: number, end: number) => start + ((end - start) * i) / (MONTH_COUNT - 1);
+
+/**
+ * 役員報酬は定期同額給与のため事業年度内は固定。3月決算で年度ごとに増額していく。
+ * 業績改善に伴って院長報酬を引き上げた、という想定。
+ */
+function directorCompensation(yearMonth: string): number {
+  if (yearMonth < "2024-04") return 2_000_000;
+  if (yearMonth < "2025-04") return 2_400_000;
+  if (yearMonth < "2026-04") return 2_800_000;
+  return 3_200_000;
+}
 
 const round = (v: number, unit = 1000) => Math.round(v / unit) * unit;
 
@@ -81,15 +111,16 @@ interface MonthFigures {
   indirectCosts: { costItemCode: string; amount: number }[];
 }
 
-/** i ヶ月目（0=2025-08）の数値を組み立てる */
+/** i ヶ月目（0=2023-08）の数値を組み立てる */
 function buildMonth(i: number): MonthFigures {
   const yearMonth = MONTHS[i];
-  const total = round(BASE_REVENUE * SEASON[i] * (1 + i * GROWTH_PER_MONTH), 10000);
+  const cm = monthOf(yearMonth);
+  const total = round(BASE_REVENUE * SEASON_BY_MONTH[cm] * (1 + i * GROWTH_PER_MONTH), 10000);
 
-  // 自費・メンテの構成比を少しずつ引き上げる（自費強化の成果を表現）
-  const selfPayShare = 0.19 + i * 0.005;
-  const maintShare = 0.145 + i * 0.0018;
-  const homeShare = 0.06;
+  // 自費・メンテ・訪問を3年かけて伸ばし、保険依存から脱却していく流れを表現する
+  const selfPayShare = lerp(i, 0.115, 0.245);
+  const maintShare = lerp(i, 0.115, 0.165);
+  const homeShare = lerp(i, 0.030, 0.060);
   const insShare = 1 - selfPayShare - maintShare - homeShare;
 
   const revenue: Record<Dept, number> = {
@@ -101,20 +132,24 @@ function buildMonth(i: number): MonthFigures {
   // TOTAL は各部門の合計と必ず一致させる
   const totalRevenue = DEPTS.reduce((s, d) => s + revenue[d], 0);
 
-  const totalPatientCount = Math.round(totalRevenue / 14200);
+  // 患者単価も3年で改善する
+  const totalPatientCount = Math.round(totalRevenue / lerp(i, 12800, 14200));
   const uniquePatientCount = Math.round(totalPatientCount * 0.58);
-  const newPatientCount = Math.round(uniquePatientCount * (0.105 - i * 0.0009));
+  // 新患数は微増だが、実患者数の伸びの方が大きいため新患比率は下がる（AI課題の論点）
+  const newPatientCount = Math.round(uniquePatientCount * lerp(i, 0.105, 0.0945));
   const returnPatientCount = uniquePatientCount - newPatientCount;
-  const dropoutCount = Math.round(uniquePatientCount * 0.032);
-  const maintenanceTransitionCount = Math.round(uniquePatientCount * (0.28 + i * 0.004));
+  const dropoutCount = Math.round(uniquePatientCount * lerp(i, 0.052, 0.033));
+  const maintenanceTransitionCount = Math.round(uniquePatientCount * lerp(i, 0.22, 0.324));
 
   const appointmentCount = Math.round(totalPatientCount * 1.09);
-  const cancelCount = Math.round(appointmentCount * (0.078 - i * 0.0009));
+  const cancelCount = Math.round(appointmentCount * lerp(i, 0.095, 0.068));
   const noShowCount = Math.round(appointmentCount * 0.014);
 
   // --- 直接原価（部門別に計上）---
-  const materialTotal = round(totalRevenue * 0.036);
-  const labTotal = round(totalRevenue * 0.044);
+  // 材料費率 10.5% → 8.0%（仕入先見直し・技工料交渉の成果）
+  const materialRatio = lerp(i, 0.105, 0.080);
+  const materialTotal = round(totalRevenue * materialRatio * 0.45);
+  const labTotal = round(totalRevenue * materialRatio * 0.55);
   const directCosts: MonthFigures["directCosts"] = [
     { costItemCode: "DIRECT_MATERIAL", departmentType: "INSURANCE", amount: round(materialTotal * 0.45) },
     { costItemCode: "DIRECT_MATERIAL", departmentType: "SELF_PAY", amount: round(materialTotal * 0.33) },
@@ -132,21 +167,26 @@ function buildMonth(i: number): MonthFigures {
   ];
 
   // --- 間接費（TOTAL計上・配賦対象）---
+  // 人件費率 30% → 25%（生産性向上により、増員を抑えつつ売上を伸ばした想定）
+  const laborRatio = lerp(i, 0.300, 0.250);
+  // 2024-08にCAD/CAMとマイクロスコープを導入した想定。リース料と償却費が段階的に上がる
+  const hasNewEquipment = yearMonth >= "2024-08";
+
   const indirectCosts: MonthFigures["indirectCosts"] = [
-    // 役員報酬は定期同額給与のため毎月固定
-    { costItemCode: "DIRECTOR_COMPENSATION", amount: 3_200_000 },
-    { costItemCode: "LABOR", amount: round(totalRevenue * 0.195) },
-    { costItemCode: "RECEPTION_LABOR", amount: round(totalRevenue * 0.033) },
-    { costItemCode: "COMMON_STAFF_LABOR", amount: round(totalRevenue * 0.022) },
+    { costItemCode: "DIRECTOR_COMPENSATION", amount: directorCompensation(yearMonth) },
+    { costItemCode: "LABOR", amount: round(totalRevenue * laborRatio * 0.78) },
+    { costItemCode: "RECEPTION_LABOR", amount: round(totalRevenue * laborRatio * 0.132) },
+    { costItemCode: "COMMON_STAFF_LABOR", amount: round(totalRevenue * laborRatio * 0.088) },
     { costItemCode: "RENT", amount: 620000 },
-    { costItemCode: "UTILITIES", amount: round(145000 * UTIL_SEASON[i]) },
-    { costItemCode: "LEASE", amount: 235000 },
+    { costItemCode: "UTILITIES", amount: round(145000 * UTIL_SEASON_BY_MONTH[cm]) },
+    { costItemCode: "LEASE", amount: hasNewEquipment ? 235000 : 180000 },
     { costItemCode: "SYSTEM_FEE", amount: 66000 },
-    { costItemCode: "DEPRECIATION", amount: 310000 },
-    { costItemCode: "ADVERTISING", amount: AD_COST[i] },
+    { costItemCode: "DEPRECIATION", amount: hasNewEquipment ? 310000 : 240000 },
+    // 広告費は自費強化に合わせて増額していく
+    { costItemCode: "ADVERTISING", amount: round(lerp(i, 120000, 260000), 10000) },
     { costItemCode: "COMMUNICATION", amount: 42000 },
     { costItemCode: "CONSUMABLES", amount: round(totalRevenue * 0.011) },
-    { costItemCode: "TRAINING", amount: 60000 },
+    { costItemCode: "TRAINING", amount: round(lerp(i, 40000, 60000), 10000) },
     { costItemCode: "INSURANCE_PREMIUM", amount: 75000 },
     { costItemCode: "REPAIR", amount: 85000 },
     { costItemCode: "MISCELLANEOUS", amount: 78000 },
@@ -294,217 +334,199 @@ async function main() {
   console.log("目標値を登録");
 
   // ---------- 5. 配賦ルール ----------
-  for (const rule of ALLOCATION_RULES) {
-    for (const dept of DEPTS) {
-      await prisma.allocationRule.create({
-        data: {
-          clinicId,
-          costItemCode: rule.costItemCode,
-          allocationTargetType: dept,
-          driverType: rule.driverType,
-          driverRatio: 25,
-          manualOverride: false,
-        },
-      });
-    }
-  }
+  await prisma.allocationRule.createMany({
+    data: ALLOCATION_RULES.flatMap((rule) =>
+      DEPTS.map((dept) => ({
+        clinicId,
+        costItemCode: rule.costItemCode,
+        allocationTargetType: dept,
+        driverType: rule.driverType,
+        driverRatio: 25,
+        manualOverride: false,
+      }))
+    ),
+  });
   console.log(`配賦ルールを登録（${ALLOCATION_RULES.length}費目 × ${DEPTS.length}部門）\n`);
 
-  // ---------- 6. 月次データ ----------
-  for (let i = 0; i < MONTHS.length; i++) {
-    const m = buildMonth(i);
+  // ---------- 6〜9. 全月分をメモリ上で組み立ててから一括投入 ----------
+  // 36ヶ月×約150行を1件ずつINSERTするとリモートDBへの往復だけで20分以上かかるため、
+  // createMany でまとめて投入する。計算もDBに読み戻さずメモリ上で完結させる。
+  const figures = MONTHS.map((_, i) => buildMonth(i));
 
-    // 売上（部門別 + TOTAL）
+  type Row = Record<string, unknown>;
+  const revenueRows: Row[] = [];
+  const patientRows: Row[] = [];
+  const appointmentRows: Row[] = [];
+  const costRows: Row[] = [];
+  const driverRows: Row[] = [];
+
+  for (const m of figures) {
     for (const dept of DEPTS) {
-      await prisma.monthlyRevenue.create({
-        data: {
-          clinicId,
-          yearMonth: m.yearMonth,
-          departmentType: dept,
-          revenueType: dept === "MAINTENANCE" ? "PREVENTION" : "TREATMENT",
-          insuranceOrPrivate: dept === "SELF_PAY" ? "PRIVATE" : dept === "MAINTENANCE" ? "MIXED" : "INSURANCE",
-          amount: m.revenue[dept],
-          points: dept === "INSURANCE" || dept === "HOME_VISIT" ? Math.round(m.revenue[dept] / 10) : 0,
-          patientCount: Math.round(m.totalPatientCount * PATIENT_SHARE[dept]),
-        },
+      revenueRows.push({
+        clinicId, yearMonth: m.yearMonth, departmentType: dept,
+        revenueType: dept === "MAINTENANCE" ? "PREVENTION" : "TREATMENT",
+        insuranceOrPrivate: dept === "SELF_PAY" ? "PRIVATE" : dept === "MAINTENANCE" ? "MIXED" : "INSURANCE",
+        amount: m.revenue[dept],
+        points: dept === "INSURANCE" || dept === "HOME_VISIT" ? Math.round(m.revenue[dept] / 10) : 0,
+        patientCount: Math.round(m.totalPatientCount * PATIENT_SHARE[dept]),
       });
     }
-    await prisma.monthlyRevenue.create({
-      data: {
-        clinicId,
-        yearMonth: m.yearMonth,
-        departmentType: "TOTAL",
-        revenueType: "TREATMENT",
-        insuranceOrPrivate: "MIXED",
-        amount: m.totalRevenue,
-        points: 0,
-        patientCount: m.totalPatientCount,
-      },
+    revenueRows.push({
+      clinicId, yearMonth: m.yearMonth, departmentType: "TOTAL",
+      revenueType: "TREATMENT", insuranceOrPrivate: "MIXED",
+      amount: m.totalRevenue, points: 0, patientCount: m.totalPatientCount,
     });
 
-    // 患者・予約
-    await prisma.monthlyPatients.create({
-      data: {
-        clinicId,
-        yearMonth: m.yearMonth,
-        departmentType: "TOTAL",
-        totalPatientCount: m.totalPatientCount,
-        uniquePatientCount: m.uniquePatientCount,
-        newPatientCount: m.newPatientCount,
-        returnPatientCount: m.returnPatientCount,
-        dropoutCount: m.dropoutCount,
-        maintenanceTransitionCount: m.maintenanceTransitionCount,
-      },
+    patientRows.push({
+      clinicId, yearMonth: m.yearMonth, departmentType: "TOTAL",
+      totalPatientCount: m.totalPatientCount, uniquePatientCount: m.uniquePatientCount,
+      newPatientCount: m.newPatientCount, returnPatientCount: m.returnPatientCount,
+      dropoutCount: m.dropoutCount, maintenanceTransitionCount: m.maintenanceTransitionCount,
     });
-    await prisma.monthlyAppointments.create({
-      data: {
-        clinicId,
-        yearMonth: m.yearMonth,
-        departmentType: "TOTAL",
-        appointmentCount: m.appointmentCount,
-        cancelCount: m.cancelCount,
-        noShowCount: m.noShowCount,
-        completedCount: m.appointmentCount - m.cancelCount,
-      },
+    appointmentRows.push({
+      clinicId, yearMonth: m.yearMonth, departmentType: "TOTAL",
+      appointmentCount: m.appointmentCount, cancelCount: m.cancelCount,
+      noShowCount: m.noShowCount, completedCount: m.appointmentCount - m.cancelCount,
     });
 
-    // コスト（直接原価 / 直接計上費 / 間接費）
     for (const c of m.directCosts) {
-      await prisma.monthlyCosts.create({
-        data: { clinicId, yearMonth: m.yearMonth, costItemCode: c.costItemCode, departmentType: c.departmentType, costLayer: "DIRECT", amount: c.amount },
-      });
+      costRows.push({ clinicId, yearMonth: m.yearMonth, costItemCode: c.costItemCode, departmentType: c.departmentType, costLayer: "DIRECT", amount: c.amount });
     }
     for (const c of m.directAssignedCosts) {
-      await prisma.monthlyCosts.create({
-        data: { clinicId, yearMonth: m.yearMonth, costItemCode: c.costItemCode, departmentType: c.departmentType, costLayer: "DIRECT_ASSIGNED", amount: c.amount },
-      });
+      costRows.push({ clinicId, yearMonth: m.yearMonth, costItemCode: c.costItemCode, departmentType: c.departmentType, costLayer: "DIRECT_ASSIGNED", amount: c.amount });
     }
     for (const c of m.indirectCosts) {
-      await prisma.monthlyCosts.create({
-        data: { clinicId, yearMonth: m.yearMonth, costItemCode: c.costItemCode, departmentType: "TOTAL", costLayer: "INDIRECT", amount: c.amount },
-      });
+      costRows.push({ clinicId, yearMonth: m.yearMonth, costItemCode: c.costItemCode, departmentType: "TOTAL", costLayer: "INDIRECT", amount: c.amount });
     }
 
-    // ドライバー量
     for (const dv of buildDriverValues(m)) {
-      await prisma.allocationDriverValue.create({
-        data: { clinicId, yearMonth: m.yearMonth, driverType: dv.driverType, departmentType: dv.departmentType, driverValue: dv.driverValue },
-      });
+      driverRows.push({ clinicId, yearMonth: m.yearMonth, driverType: dv.driverType, departmentType: dv.departmentType, driverValue: dv.driverValue });
     }
-
-    console.log(`  ${m.yearMonth}: 売上 ${m.totalRevenue.toLocaleString()}円 / 延患者 ${m.totalPatientCount}人 / 新患 ${m.newPatientCount}人`);
   }
-  console.log("");
 
-  // ---------- 7. 配賦計算（api/allocation/calculate と同じロジック）----------
-  for (const yearMonth of MONTHS) {
-    const indirectCosts = await prisma.monthlyCosts.findMany({
-      where: { clinicId, yearMonth, departmentType: "TOTAL", costLayer: "INDIRECT" },
-    });
-    const driverValues = await prisma.allocationDriverValue.findMany({ where: { clinicId, yearMonth } });
+  // 配賦計算（api/allocation/calculate と同じロジック）
+  const allocationRows: Row[] = [];
+  for (const m of figures) {
+    const yearMonth = m.yearMonth;
+    const monthDrivers = driverRows.filter((d) => d.yearMonth === yearMonth);
 
-    for (const cost of indirectCosts) {
+    for (const cost of m.indirectCosts) {
       const rule = ALLOCATION_RULES.find((r) => r.costItemCode === cost.costItemCode);
       if (!rule) {
         console.warn(`  [警告] ${yearMonth} ${cost.costItemCode}: 配賦ルールが無いため未配賦`);
         continue;
       }
-      const relevant = driverValues.filter((d) => d.driverType === rule.driverType && d.departmentType !== "TOTAL");
-      const totalDriverValue = relevant.reduce((s, d) => s + d.driverValue, 0);
+      const relevant = monthDrivers.filter((d) => d.driverType === rule.driverType && d.departmentType !== "TOTAL");
+      const totalDriverValue = relevant.reduce((s, d) => s + (d.driverValue as number), 0);
       if (totalDriverValue === 0) {
         console.warn(`  [警告] ${yearMonth} ${cost.costItemCode}: ドライバー(${rule.driverType})の量が0のため未配賦`);
         continue;
       }
       const driverRate = cost.amount / totalDriverValue;
-
       for (const d of relevant) {
-        const data = { driverType: rule.driverType, driverRate, allocatedAmount: d.driverValue * driverRate };
-        await prisma.allocationResult.upsert({
-          where: {
-            clinicId_yearMonth_costItemCode_departmentType: {
-              clinicId, yearMonth, costItemCode: cost.costItemCode, departmentType: d.departmentType,
-            },
-          },
-          update: data,
-          create: { clinicId, yearMonth, costItemCode: cost.costItemCode, departmentType: d.departmentType, ...data },
+        allocationRows.push({
+          clinicId, yearMonth, costItemCode: cost.costItemCode,
+          departmentType: d.departmentType, driverType: rule.driverType,
+          driverRate, allocatedAmount: (d.driverValue as number) * driverRate,
         });
       }
     }
   }
-  console.log("配賦結果を計算");
 
-  // ---------- 8. KPI計算（古い月から順に計算して前月比も埋める）----------
-  const profile = await prisma.clinicProfile.findFirst({ where: { clinicId } });
-  for (const yearMonth of MONTHS) {
-    const [revenue, patients, appointments, costs] = await Promise.all([
-      prisma.monthlyRevenue.findMany({ where: { clinicId, yearMonth } }),
-      prisma.monthlyPatients.findMany({ where: { clinicId, yearMonth } }),
-      prisma.monthlyAppointments.findMany({ where: { clinicId, yearMonth } }),
-      prisma.monthlyCosts.findMany({ where: { clinicId, yearMonth } }),
-    ]);
-    const kpis = calculateKpis({ revenue, patients, appointments, costs } as never, profile as never);
+  // KPI計算（古い月から順に計算して前月比も埋める）
+  const kpiRows: Row[] = [];
+  const prevValues = new Map<string, Map<string, number>>();
+  for (const m of figures) {
+    const yearMonth = m.yearMonth;
+    const kpis = calculateKpis(
+      {
+        revenue: revenueRows.filter((r) => r.yearMonth === yearMonth),
+        patients: patientRows.filter((r) => r.yearMonth === yearMonth),
+        appointments: appointmentRows.filter((r) => r.yearMonth === yearMonth),
+        costs: costRows.filter((r) => r.yearMonth === yearMonth),
+      } as never,
+      profileData as never
+    );
 
-    const prevKpis = await prisma.monthlyKpis.findMany({ where: { clinicId, yearMonth: prevMonthOf(yearMonth) } });
-
+    const prev = prevValues.get(prevMonthOf(yearMonth));
+    const current = new Map<string, number>();
     for (const kpi of kpis) {
-      const prev = prevKpis.find((p) => p.kpiCode === kpi.kpiCode);
+      current.set(kpi.kpiCode, kpi.kpiValue);
       const targetValue = getTargetValue(kpi.kpiCode, target as never);
-      // 実行中にユーザーが画面を開くと /api/kpi が同じ行を作るため、create ではなく upsert する
-      const data = {
-        kpiValue: kpi.kpiValue,
-        comparisonPrevMonth: prev ? kpi.kpiValue - prev.kpiValue : null,
+      kpiRows.push({
+        clinicId, yearMonth, kpiCode: kpi.kpiCode, kpiValue: kpi.kpiValue,
+        comparisonPrevMonth: prev?.has(kpi.kpiCode) ? kpi.kpiValue - prev.get(kpi.kpiCode)! : null,
         comparisonPrevYear: null,
         targetValue,
         achievementRate: targetValue && targetValue > 0 ? (kpi.kpiValue / targetValue) * 100 : null,
         benchmarkValue: kpi.benchmarkValue ?? null,
-      };
-      await prisma.monthlyKpis.upsert({
-        where: { clinicId_yearMonth_kpiCode: { clinicId, yearMonth, kpiCode: kpi.kpiCode } },
-        update: data,
-        create: { clinicId, yearMonth, kpiCode: kpi.kpiCode, ...data },
       });
     }
+    prevValues.set(yearMonth, current);
   }
-  console.log("KPIを計算");
 
-  // ---------- 9. 部門別採算（api/department と同じロジック）----------
-  for (const yearMonth of MONTHS) {
-    const [revenue, costs, allocations] = await Promise.all([
-      prisma.monthlyRevenue.findMany({ where: { clinicId, yearMonth } }),
-      prisma.monthlyCosts.findMany({ where: { clinicId, yearMonth } }),
-      prisma.allocationResult.findMany({ where: { clinicId, yearMonth } }),
-    ]);
+  // 部門別採算（api/department と同じロジック）
+  const deptRows: Row[] = [];
+  for (const m of figures) {
+    const yearMonth = m.yearMonth;
+    const monthAllocations = allocationRows.filter((a) => a.yearMonth === yearMonth);
 
     for (const dept of DEPTS) {
-      const deptRevenue = revenue.filter((r) => r.departmentType === dept).reduce((s, r) => s + r.amount, 0);
-      const directCost = costs.filter((c) => c.departmentType === dept && c.costLayer === "DIRECT").reduce((s, c) => s + c.amount, 0);
-      const directAssignedCost = costs.filter((c) => c.departmentType === dept && c.costLayer === "DIRECT_ASSIGNED").reduce((s, c) => s + c.amount, 0);
-      const allocatedIndirectCost = allocations.filter((a) => a.departmentType === dept).reduce((s, a) => s + a.allocatedAmount, 0);
+      const deptRevenue = m.revenue[dept];
+      const directCost = m.directCosts.filter((c) => c.departmentType === dept).reduce((s, c) => s + c.amount, 0);
+      const directAssignedCost = m.directAssignedCosts.filter((c) => c.departmentType === dept).reduce((s, c) => s + c.amount, 0);
+      const allocatedIndirectCost = monthAllocations.filter((a) => a.departmentType === dept).reduce((s, a) => s + (a.allocatedAmount as number), 0);
       const grossProfit = deptRevenue - directCost;
       const preAllocationProfit = grossProfit - directAssignedCost;
       const postAllocationOperatingProfit = preAllocationProfit - allocatedIndirectCost;
 
-      // 実行中にユーザーが画面を開くと /api/department が同じ行を作るため、create ではなく upsert する
-      const data = {
-        revenue: deptRevenue,
-        directCost,
-        grossProfit,
+      deptRows.push({
+        clinicId, yearMonth, departmentType: dept,
+        revenue: deptRevenue, directCost, grossProfit,
         grossMargin: deptRevenue > 0 ? (grossProfit / deptRevenue) * 100 : 0,
-        directAssignedCost,
-        preAllocationProfit,
+        directAssignedCost, preAllocationProfit,
         preAllocationMargin: deptRevenue > 0 ? (preAllocationProfit / deptRevenue) * 100 : 0,
-        allocatedIndirectCost,
-        postAllocationOperatingProfit,
+        allocatedIndirectCost, postAllocationOperatingProfit,
         operatingMargin: deptRevenue > 0 ? (postAllocationOperatingProfit / deptRevenue) * 100 : 0,
-      };
-      await prisma.departmentProfitability.upsert({
-        where: { clinicId_yearMonth_departmentType: { clinicId, yearMonth, departmentType: dept } },
-        update: data,
-        create: { clinicId, yearMonth, departmentType: dept, ...data },
       });
     }
   }
-  console.log("部門別採算を計算");
+
+  // ---------- 一括投入 ----------
+  // KPIと部門別採算は投入直前に再度削除する。ここまでの処理中にユーザーが画面を開くと
+  // /api/kpi と /api/department が行を自動生成し、createMany が一意制約で衝突するため。
+  await prisma.monthlyKpis.deleteMany({ where: { clinicId } });
+  await prisma.departmentProfitability.deleteMany({ where: { clinicId } });
+
+  const inserts: [string, { createMany: (a: { data: Row[] }) => Promise<{ count: number }> }, Row[]][] = [
+    ["売上", prisma.monthlyRevenue as never, revenueRows],
+    ["患者", prisma.monthlyPatients as never, patientRows],
+    ["予約", prisma.monthlyAppointments as never, appointmentRows],
+    ["コスト", prisma.monthlyCosts as never, costRows],
+    ["ドライバー量", prisma.allocationDriverValue as never, driverRows],
+    ["配賦結果", prisma.allocationResult as never, allocationRows],
+    ["KPI", prisma.monthlyKpis as never, kpiRows],
+    ["部門別採算", prisma.departmentProfitability as never, deptRows],
+  ];
+
+  for (const [label, model, rows] of inserts) {
+    let inserted = 0;
+    // 1回のcreateManyが大きくなりすぎないよう分割する
+    for (let i = 0; i < rows.length; i += 500) {
+      const res = await model.createMany({ data: rows.slice(i, i + 500) });
+      inserted += res.count;
+    }
+    console.log(`  ${label.padEnd(6)} ${String(inserted).padStart(5)}件`);
+  }
+  console.log("");
+
+  const summary = (m: MonthFigures) => {
+    const kpi = kpiRows.filter((k) => k.yearMonth === m.yearMonth);
+    const v = (code: string) => (kpi.find((k) => k.kpiCode === code)?.kpiValue as number) ?? 0;
+    return `売上 ${(m.totalRevenue / 10000).toFixed(0)}万円 / 自費率 ${v("selfPayRatio").toFixed(1)}% / 人件費率 ${v("laborCostRatio").toFixed(1)}% / 営業利益率 ${v("operatingProfitRate").toFixed(1)}%`;
+  };
+  console.log(`  ${figures[0].yearMonth}: ${summary(figures[0])}`);
+  console.log(`  ${figures[figures.length - 1].yearMonth}: ${summary(figures[figures.length - 1])}\n`);
 
   // ---------- 10. AI課題・改善提案 ----------
   const latest = MONTHS[MONTHS.length - 1];
