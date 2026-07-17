@@ -79,11 +79,12 @@ export function simulateImprovements(
   const cancelRate = v("cancelRate");
   const cancelGoal = goalOf(target.cancelRate, 10);
   if (cancelRate > cancelGoal && perMinute > 0) {
+    // 目標を上回る「超過分」であり、キャンセル総数ではない点が伝わる文言にする
     const reducibleCount = v("appointmentCount") * ((cancelRate - cancelGoal) / 100);
     ops.push({
       code: "cancelRate",
       title: "キャンセル率の低減",
-      problem: `キャンセル率が${pct(cancelRate)}で、目標${pct(cancelGoal)}を${(cancelRate - cancelGoal).toFixed(1)}ポイント上回っています。月${Math.round(reducibleCount)}件のチェアが空いている計算です。`,
+      problem: `キャンセルが月${Math.round(v("cancelCount"))}件発生しており、キャンセル率${pct(cancelRate)}は目標${pct(cancelGoal)}を${(cancelRate - cancelGoal).toFixed(1)}ポイント上回っています。目標まで下げれば月${Math.round(reducibleCount)}件分のチェアが埋まります。`,
       current: pct(cancelRate),
       target: pct(cancelGoal),
       suggestion: "前日のリマインドをSMSと電話で二重化してください。キャンセル理由を記録して傾向を掴むと、対策の的が絞れます。",
@@ -204,14 +205,16 @@ export function simulateImprovements(
   const discontinuedGoal = goalOf(target.discontinuedRate, 5);
   const uniquePatients = v("uniquePatientCount");
   if (discontinuedRate > discontinuedGoal && uniquePatients > 0) {
+    // 目標を上回る「超過分」であり、中断者の総数ではない点が伝わる文言にする
     const retainedPatients = uniquePatients * ((discontinuedRate - discontinuedGoal) / 100);
+    const totalDropouts = uniquePatients * (discontinuedRate / 100);
     ops.push({
       code: "discontinuedRate",
       title: "中断患者の抑制",
-      problem: `中断率が${pct(discontinuedRate)}で、目標${pct(discontinuedGoal)}を上回っています。月${Math.round(retainedPatients)}人が治療途中で離脱している計算です。`,
+      problem: `月${Math.round(totalDropouts)}人が治療途中で離脱しており、中断率${pct(discontinuedRate)}は目標${pct(discontinuedGoal)}を上回っています。目標まで下げれば月${Math.round(retainedPatients)}人の離脱を防げます。`,
       current: pct(discontinuedRate),
       target: pct(discontinuedGoal),
-      suggestion: "treatment planを初診時に提示し、通院回数と費用の見通しを共有してください。中断が発生しやすい治療段階を特定し、その前後で連絡を入れる運用が効きます。",
+      suggestion: "治療計画を初診時に文書で提示し、通院回数と費用の見通しを共有してください。中断が発生しやすい治療段階を特定し、その前後で連絡を入れる運用が効きます。",
       monthlyImpact: (retainedPatients * totalRevenue) / uniquePatients,
       difficulty: "MEDIUM",
     });
