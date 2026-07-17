@@ -149,6 +149,12 @@ export const actionPlanCreateSchema = z.object({
   status: z.enum(["TODO", "IN_PROGRESS", "DONE", "CANCELLED"]).default("TODO"),
   dueDate: z.string().optional().nullable(),
   assignee: z.string().max(100).optional().nullable(),
+  // 成果の追跡（PDCA）
+  kpiCode: z.string().max(50).optional().nullable(),
+  baselineValue: z.number().optional().nullable(),
+  targetValue: z.number().optional().nullable(),
+  resultValue: z.number().optional().nullable(),
+  expectedImpact: z.number().optional().nullable(),
 })
 
 export const actionPlanUpdateSchema = actionPlanCreateSchema.partial().extend({

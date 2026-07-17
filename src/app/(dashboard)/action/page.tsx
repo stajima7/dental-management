@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/utils";
+import { KPI_DEFINITIONS } from "@/lib/kpi-calculator";
 import type { Opportunity } from "@/lib/improvement-simulator";
 
 // 難易度のラベル(DIFFICULTY_LABELS)はAI診断結果と共通のものを下部で定義している
@@ -39,6 +40,13 @@ interface ActionPlan {
   dueDate: string | null;
   assignee: string | null;
   createdAt: string;
+  kpiCode: string | null;
+  baselineValue: number | null;
+  targetValue: number | null;
+  resultValue: number | null;
+  expectedImpact: number | null;
+  startedAt: string | null;
+  completedAt: string | null;
 }
 
 interface ClinicInfo { id: string; clinicName: string; }
@@ -49,6 +57,26 @@ const CATEGORY_LABELS: Record<string, string> = { revenue: "売上", patient: "�
 const CATEGORY_COLORS: Record<string, string> = { revenue: "bg-blue-100 text-blue-700", patient: "bg-green-100 text-green-700", cost: "bg-red-100 text-red-700", productivity: "bg-purple-100 text-purple-700", profit: "bg-amber-100 text-amber-700", operation: "bg-gray-100 text-gray-700" };
 const IMPACT_LABELS: Record<string, string> = { HIGH: "高", MEDIUM: "中", LOW: "低" };
 const DIFFICULTY_LABELS: Record<string, string> = { HIGH: "難", MEDIUM: "中", LOW: "易" };
+
+/** アクション作成フォームの初期値 */
+const EMPTY_FORM = {
+  title: "", description: "", status: "TODO", dueDate: "", assignee: "", insightId: "",
+  kpiCode: "", baselineValue: "", targetValue: "", resultValue: "", expectedImpact: "",
+};
+
+/**
+ * 目標を達成したか。
+ * キャンセル率のように「低いほど良い」指標は目標以下で達成、
+ * 自費率のように「高いほど良い」指標は目標以上で達成となるため、
+ * KPI定義の higherIsBetter を見て判定を反転させる。
+ */
+function achieved(plan: { kpiCode: string | null; targetValue: number | null; resultValue: number | null }): boolean {
+  if (plan.targetValue == null || plan.resultValue == null) return false;
+  const def = plan.kpiCode ? KPI_DEFINITIONS[plan.kpiCode] : undefined;
+  // KPIコードが無い手動作成のアクションは「高いほど良い」とみなす
+  const higherIsBetter = def?.higherIsBetter ?? true;
+  return higherIsBetter ? plan.resultValue >= plan.targetValue : plan.resultValue <= plan.targetValue;
+}
 const STATUS_LABELS: Record<string, string> = { TODO: "未着手", IN_PROGRESS: "進行中", DONE: "完了", CANCELLED: "中止" };
 const STATUS_COLORS: Record<string, string> = { TODO: "bg-gray-100 text-gray-700", IN_PROGRESS: "bg-blue-100 text-blue-700", DONE: "bg-green-100 text-green-700", CANCELLED: "bg-red-100 text-red-700" };
 
@@ -68,7 +96,10 @@ export default function ActionPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingPlan, setEditingPlan] = useState<ActionPlan | null>(null);
-  const [formData, setFormData] = useState({ title: "", description: "", status: "TODO", dueDate: "", assignee: "", insightId: "" });
+  const [formData, setFormData] = useState({
+    title: "", description: "", status: "TODO", dueDate: "", assignee: "", insightId: "",
+    kpiCode: "", baselineValue: "", targetValue: "", resultValue: "", expectedImpact: "",
+  });
 
   useEffect(() => {
     fetch("/api/clinics").then((r) => r.json()).then((data) => {
@@ -79,10 +110,6 @@ export default function ActionPage() {
       }
     });
   }, []);
-
-  useEffect(() => {
-    if (selectedClinicId) { loadInsights(); loadPlans(); loadOpportunities(); }
-  }, [selectedClinicId, yearMonth]);
 
   const loadOpportunities = async () => {
     try {
@@ -107,6 +134,11 @@ export default function ActionPage() {
     } catch { /* ignore */ }
   };
 
+  // 取得関数の宣言より後ろに置く（宣言前参照を避けるため）
+  useEffect(() => {
+    if (selectedClinicId) { loadInsights(); loadPlans(); loadOpportunities(); }
+  }, [selectedClinicId, yearMonth]);
+
   const runAnalysis = async () => {
     setAnalyzing(true);
     try {
@@ -118,7 +150,10 @@ export default function ActionPage() {
   };
 
   const createFromInsight = (insight: AiInsight) => {
-    setFormData({ title: insight.title, description: insight.suggestion, status: "TODO", dueDate: "", assignee: "", insightId: insight.id });
+    setFormData({
+      ...EMPTY_FORM,
+      title: insight.title, description: insight.suggestion, insightId: insight.id,
+    });
     setEditingPlan(null);
     setShowForm(true);
     setActiveTab("plans");
@@ -126,22 +161,34 @@ export default function ActionPage() {
 
   const savePlan = async () => {
     try {
+      // 数値項目はフォーム上は文字列で持つため、未入力はnull、入力済みは数値に変換する
+      const num = (s: string) => (s === "" ? null : Number(s));
+      const payload = {
+        ...formData,
+        dueDate: formData.dueDate || null,
+        kpiCode: formData.kpiCode || null,
+        baselineValue: num(formData.baselineValue),
+        targetValue: num(formData.targetValue),
+        resultValue: num(formData.resultValue),
+        expectedImpact: num(formData.expectedImpact),
+      };
+
       if (editingPlan) {
         await fetch("/api/action", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingPlan.id, ...formData, dueDate: formData.dueDate || null }),
+          body: JSON.stringify({ id: editingPlan.id, ...payload }),
         });
       } else {
         await fetch("/api/action", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clinicId: selectedClinicId, ...formData, dueDate: formData.dueDate || null }),
+          body: JSON.stringify({ clinicId: selectedClinicId, ...payload }),
         });
       }
       setShowForm(false);
       setEditingPlan(null);
-      setFormData({ title: "", description: "", status: "TODO", dueDate: "", assignee: "", insightId: "" });
+      setFormData(EMPTY_FORM);
       loadPlans();
     } catch { /* ignore */ }
   };
@@ -152,6 +199,11 @@ export default function ActionPage() {
       title: plan.title, description: plan.description, status: plan.status,
       dueDate: plan.dueDate ? plan.dueDate.slice(0, 10) : "", assignee: plan.assignee || "",
       insightId: plan.insightId || "",
+      kpiCode: plan.kpiCode || "",
+      baselineValue: plan.baselineValue?.toString() ?? "",
+      targetValue: plan.targetValue?.toString() ?? "",
+      resultValue: plan.resultValue?.toString() ?? "",
+      expectedImpact: plan.expectedImpact?.toString() ?? "",
     });
     setShowForm(true);
   };
@@ -273,10 +325,15 @@ export default function ActionPage() {
                         variant="secondary"
                         className="mt-3"
                         onClick={() => {
+                          // 着手時点の値・目標値・想定効果を引き継ぎ、後から成果を測れるようにする
                           setFormData({
+                            ...EMPTY_FORM,
                             title: op.title,
-                            description: `${op.problem}\n\n【打ち手】${op.suggestion}\n\n【想定効果】月${formatCurrency(op.monthlyImpact)}（${op.current} → ${op.target}）`,
-                            status: "TODO", dueDate: "", assignee: "", insightId: "",
+                            description: `${op.problem}\n\n【打ち手】${op.suggestion}`,
+                            kpiCode: op.code,
+                            baselineValue: parseFloat(op.current).toString(),
+                            targetValue: parseFloat(op.target).toString(),
+                            expectedImpact: Math.round(op.monthlyImpact).toString(),
                           });
                           setEditingPlan(null);
                           setShowForm(true);
@@ -360,7 +417,7 @@ export default function ActionPage() {
       {activeTab === "plans" && (
         <>
           <div className="flex justify-end">
-            <Button onClick={() => { setShowForm(true); setEditingPlan(null); setFormData({ title: "", description: "", status: "TODO", dueDate: "", assignee: "", insightId: "" }); }}>
+            <Button onClick={() => { setShowForm(true); setEditingPlan(null); setFormData(EMPTY_FORM); }}>
               新規アクション追加
             </Button>
           </div>
@@ -382,6 +439,32 @@ export default function ActionPage() {
                   <div><Label>期日</Label><Input type="date" value={formData.dueDate} onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} /></div>
                   <div><Label>担当者</Label><Input value={formData.assignee} onChange={(e) => setFormData({ ...formData, assignee: e.target.value })} /></div>
                 </div>
+
+                <div className="mt-6 pt-4 border-t">
+                  <p className="text-sm font-medium text-gray-700 mb-1">成果の測定</p>
+                  <p className="text-xs text-gray-500 mb-3">
+                    着手時の値と目標値を入れておくと、完了後に実績値と比べて効果を確認できます。改善額シミュレーションから起票した場合は自動で入ります。
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label>着手時の値</Label>
+                      <Input type="number" step="0.1" value={formData.baselineValue} onChange={(e) => setFormData({ ...formData, baselineValue: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>目標値</Label>
+                      <Input type="number" step="0.1" value={formData.targetValue} onChange={(e) => setFormData({ ...formData, targetValue: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>実績値</Label>
+                      <Input type="number" step="0.1" value={formData.resultValue} onChange={(e) => setFormData({ ...formData, resultValue: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>想定効果（月・円）</Label>
+                      <Input type="number" value={formData.expectedImpact} onChange={(e) => setFormData({ ...formData, expectedImpact: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="mt-4 flex gap-2 justify-end">
                   <Button variant="ghost" onClick={() => { setShowForm(false); setEditingPlan(null); }}>キャンセル</Button>
                   <Button onClick={savePlan} disabled={!formData.title || !formData.description}>{editingPlan ? "更新" : "作成"}</Button>
@@ -411,7 +494,44 @@ export default function ActionPage() {
                           {plan.assignee && <span className="text-xs text-gray-500">担当: {plan.assignee}</span>}
                         </div>
                         <h3 className="font-medium text-gray-900">{plan.title}</h3>
-                        <p className="text-sm text-gray-600 mt-1">{plan.description}</p>
+                        <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{plan.description}</p>
+
+                        {(plan.baselineValue != null || plan.targetValue != null || plan.expectedImpact != null) && (
+                          <div className="mt-3 p-3 rounded bg-gray-50">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                              {plan.baselineValue != null && (
+                                <span className="text-gray-600">着手時 <strong className="text-gray-900">{plan.baselineValue}</strong></span>
+                              )}
+                              {plan.targetValue != null && (
+                                <>
+                                  <span className="text-gray-400">→</span>
+                                  <span className="text-gray-600">目標 <strong className="text-gray-900">{plan.targetValue}</strong></span>
+                                </>
+                              )}
+                              {plan.resultValue != null && (
+                                <>
+                                  <span className="text-gray-400">→</span>
+                                  <span className="text-gray-600">
+                                    実績 <strong className={achieved(plan) ? "text-green-700" : "text-orange-700"}>{plan.resultValue}</strong>
+                                    {achieved(plan) ? "（達成）" : "（未達）"}
+                                  </span>
+                                </>
+                              )}
+                              {plan.expectedImpact != null && (
+                                <span className="text-gray-600">想定効果 <strong className="text-gray-900">月{formatCurrency(plan.expectedImpact)}</strong></span>
+                              )}
+                            </div>
+                            {(plan.startedAt || plan.completedAt) && (
+                              <div className="flex flex-wrap gap-x-4 mt-2 text-xs text-gray-500">
+                                {plan.startedAt && <span>着手日: {new Date(plan.startedAt).toLocaleDateString("ja-JP")}</span>}
+                                {plan.completedAt && <span>完了日: {new Date(plan.completedAt).toLocaleDateString("ja-JP")}</span>}
+                                {plan.startedAt && plan.completedAt && (
+                                  <span>所要 {Math.round((new Date(plan.completedAt).getTime() - new Date(plan.startedAt).getTime()) / 86400000)}日</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         {plan.status === "TODO" && <Button size="sm" variant="ghost" onClick={() => updateStatus(plan, "IN_PROGRESS")}>着手</Button>}

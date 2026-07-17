@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { clinicId, insightId, title, description, status, dueDate, assignee } = validation.data
+    const { clinicId, insightId, title, description, status, dueDate, assignee,
+      kpiCode, baselineValue, targetValue, resultValue, expectedImpact } = validation.data
 
     const clinicUser = await prisma.clinicUser.findUnique({
       where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
@@ -62,15 +63,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
     }
 
+    const initialStatus = status || "TODO"
+
     const plan = await prisma.actionPlan.create({
       data: {
         clinicId,
         insightId: insightId || null,
         title,
         description,
-        status: status || "TODO",
+        status: initialStatus,
         dueDate: dueDate ? new Date(dueDate) : null,
         assignee: assignee || null,
+        kpiCode: kpiCode || null,
+        baselineValue: baselineValue ?? null,
+        targetValue: targetValue ?? null,
+        resultValue: resultValue ?? null,
+        expectedImpact: expectedImpact ?? null,
+        // 着手・完了の日付は担当者に入力させず、ステータス変更から自動で記録する
+        startedAt: initialStatus === "IN_PROGRESS" || initialStatus === "DONE" ? new Date() : null,
+        completedAt: initialStatus === "DONE" ? new Date() : null,
       },
     })
 
@@ -108,6 +119,19 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
     }
 
+    // 着手・完了の日時はステータス変更から自動で記録する。
+    // 一度記録した日時は、後でステータスを戻しても上書きしない（実績を消さないため）。
+    const statusChanged = updateData.status !== undefined && updateData.status !== existing.status
+    const timestamps: { startedAt?: Date; completedAt?: Date } = {}
+    if (statusChanged) {
+      if ((updateData.status === "IN_PROGRESS" || updateData.status === "DONE") && !existing.startedAt) {
+        timestamps.startedAt = new Date()
+      }
+      if (updateData.status === "DONE" && !existing.completedAt) {
+        timestamps.completedAt = new Date()
+      }
+    }
+
     const plan = await prisma.actionPlan.update({
       where: { id },
       data: {
@@ -116,6 +140,12 @@ export async function PUT(req: NextRequest) {
         ...(updateData.status !== undefined && { status: updateData.status }),
         ...(updateData.dueDate !== undefined && { dueDate: updateData.dueDate ? new Date(updateData.dueDate) : null }),
         ...(updateData.assignee !== undefined && { assignee: updateData.assignee }),
+        ...(updateData.kpiCode !== undefined && { kpiCode: updateData.kpiCode || null }),
+        ...(updateData.baselineValue !== undefined && { baselineValue: updateData.baselineValue }),
+        ...(updateData.targetValue !== undefined && { targetValue: updateData.targetValue }),
+        ...(updateData.resultValue !== undefined && { resultValue: updateData.resultValue }),
+        ...(updateData.expectedImpact !== undefined && { expectedImpact: updateData.expectedImpact }),
+        ...timestamps,
       },
     })
 

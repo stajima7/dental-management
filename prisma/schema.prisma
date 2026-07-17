@@ -477,6 +477,20 @@ model ActionPlan {
   status      ActionStatus @default(TODO)
   dueDate     DateTime?
   assignee    String?
+  // ---- 成果の追跡（PDCA）----
+  /** 対象KPIのコード。改善額シミュレーションから起票した場合に入る */
+  kpiCode     String?
+  /** 着手時点の値。改善幅を測る基準になる */
+  baselineValue Float?
+  /** 目指す値 */
+  targetValue Float?
+  /** 実際に到達した値 */
+  resultValue Float?
+  /** 想定していた月次の金額インパクト（円） */
+  expectedImpact Float?
+  /** 着手日・完了日はstatus変更時に自動で入る */
+  startedAt   DateTime?
+  completedAt DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
