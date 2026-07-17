@@ -9,7 +9,8 @@ export function formatCurrency(value: number): string {
   if (Math.abs(value) >= 10000) {
     return `${(value / 10000).toFixed(1)}万円`
   }
-  return `${value.toLocaleString()}円`
+  // 分単価や人時生産性など1万円未満の指標は小数が出るため円単位に丸める
+  return `${Math.round(value).toLocaleString()}円`
 }
 
 export function formatPercent(value: number): string {

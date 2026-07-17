@@ -75,8 +75,8 @@ export default function HumanAnalysisPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard label="歯科医師FTE" value={formatNumber(getKpi("dentistFte"))} status={statusMap(getKpiStatus("dentistFte", getKpi("dentistFte")))} />
-        <KpiCard label="衛生士FTE" value={formatNumber(getKpi("hygienistFte"))} status={statusMap(getKpiStatus("hygienistFte", getKpi("hygienistFte")))} />
+        <KpiCard label="歯科医師FTE" value={`${getKpi("dentistFte").toFixed(1)}人`} status={statusMap(getKpiStatus("dentistFte", getKpi("dentistFte")))} />
+        <KpiCard label="衛生士FTE" value={`${getKpi("hygienistFte").toFixed(1)}人`} status={statusMap(getKpiStatus("hygienistFte", getKpi("hygienistFte")))} />
         <KpiCard label="Dr1人当たり売上" value={formatCurrency(getKpi("revenuePerDentist"))} status="neutral" />
         <KpiCard label="DH1人当たり売上" value={formatCurrency(getKpi("revenuePerHygienist"))} status="neutral" />
       </div>
@@ -89,7 +89,7 @@ export default function HumanAnalysisPage() {
               <BarChart data={staffData} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" />
-                <YAxis type="category" dataKey="name" width={120} />
+                <YAxis type="category" dataKey="name" width={150} />
                 <Tooltip />
                 <Bar dataKey="value" fill="#3B82F6" name="人数" />
               </BarChart>
@@ -149,20 +149,37 @@ export default function HumanAnalysisPage() {
         </CardHeader>
         <CardContent>
           {trendData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={320}>
-              <LineChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" />
-                <YAxis yAxisId="left" tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
-                <YAxis yAxisId="right" orientation="right" unit="%" />
-                <Tooltip formatter={(v, name) => name === "人件費率" ? `${Number(v).toFixed(1)}%` : formatCurrency(Number(v))} />
-                <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="revenuePerDentist" name="Dr1人当たり売上" stroke="#3B82F6" strokeWidth={2} />
-                <Line yAxisId="left" type="monotone" dataKey="revenuePerHygienist" name="DH1人当たり売上" stroke="#10B981" strokeWidth={2} />
-                <Line yAxisId="left" type="monotone" dataKey="revenuePerLaborHour" name="人時生産性" stroke="#8B5CF6" strokeWidth={2} />
-                <Line yAxisId="right" type="monotone" dataKey="laborCostRatio" name="人件費率" stroke="#EF4444" strokeWidth={2} strokeDasharray="4 2" />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="space-y-6">
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis yAxisId="left" tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
+                  <YAxis yAxisId="right" orientation="right" unit="%" />
+                  <Tooltip formatter={(v, name) => name === "人件費率" ? `${Number(v).toFixed(1)}%` : formatCurrency(Number(v))} />
+                  <Legend />
+                  <Line yAxisId="left" type="monotone" dataKey="revenuePerDentist" name="Dr1人当たり売上" stroke="#3B82F6" strokeWidth={2} />
+                  <Line yAxisId="left" type="monotone" dataKey="revenuePerHygienist" name="DH1人当たり売上" stroke="#10B981" strokeWidth={2} />
+                  <Line yAxisId="right" type="monotone" dataKey="laborCostRatio" name="人件費率" stroke="#EF4444" strokeWidth={2} strokeDasharray="4 2" />
+                </LineChart>
+              </ResponsiveContainer>
+              <div>
+                {/* 人時生産性は円単位で桁が3桁小さく、万円軸に載せると線が底に張り付くため別グラフにする */}
+                <p className="text-sm font-medium text-gray-700 mb-2">人時生産性・残業比率の推移</p>
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" />
+                    <YAxis yAxisId="left" tickFormatter={(v) => `${Math.round(v).toLocaleString()}円`} />
+                    <YAxis yAxisId="right" orientation="right" unit="%" />
+                    <Tooltip formatter={(v, name) => name === "残業比率" ? `${Number(v).toFixed(1)}%` : formatCurrency(Number(v))} />
+                    <Legend />
+                    <Line yAxisId="left" type="monotone" dataKey="revenuePerLaborHour" name="人時生産性" stroke="#8B5CF6" strokeWidth={2} />
+                    <Line yAxisId="right" type="monotone" dataKey="overtimeRatio" name="残業比率" stroke="#F59E0B" strokeWidth={2} strokeDasharray="4 2" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           ) : <p className="text-gray-500 text-center py-8">データがありません</p>}
         </CardContent>
       </Card>

@@ -158,19 +158,36 @@ export default function EquipmentAnalysisPage() {
         </CardHeader>
         <CardContent>
           {trendData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={320}>
-              <LineChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" />
-                <YAxis yAxisId="left" tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
-                <YAxis yAxisId="right" orientation="right" unit="%" />
-                <Tooltip formatter={(v, name) => name === "チェア稼働率" ? `${Number(v).toFixed(1)}%` : formatCurrency(Number(v))} />
-                <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="revenuePerUnit" name="ユニット1台当たり売上" stroke="#3B82F6" strokeWidth={2} />
-                <Line yAxisId="left" type="monotone" dataKey="revenuePerPatient" name="患者単価" stroke="#10B981" strokeWidth={2} />
-                <Line yAxisId="right" type="monotone" dataKey="chairUtilization" name="チェア稼働率" stroke="#F59E0B" strokeWidth={2} strokeDasharray="4 2" />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="space-y-6">
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis yAxisId="left" tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
+                  <YAxis yAxisId="right" orientation="right" unit="%" domain={[0, 100]} />
+                  <Tooltip formatter={(v, name) => name === "チェア稼働率" ? `${Number(v).toFixed(1)}%` : formatCurrency(Number(v))} />
+                  <Legend />
+                  <Line yAxisId="left" type="monotone" dataKey="revenuePerUnit" name="ユニット1台当たり売上" stroke="#3B82F6" strokeWidth={2} />
+                  <Line yAxisId="right" type="monotone" dataKey="chairUtilization" name="チェア稼働率" stroke="#F59E0B" strokeWidth={2} strokeDasharray="4 2" />
+                </LineChart>
+              </ResponsiveContainer>
+              <div>
+                {/* 患者単価・分単価はユニット売上と桁が2〜4桁違うため、万円軸に載せず別グラフにする */}
+                <p className="text-sm font-medium text-gray-700 mb-2">患者単価・チェア分単価の推移</p>
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" />
+                    <YAxis yAxisId="left" tickFormatter={(v) => `${(v / 10000).toFixed(1)}万`} />
+                    <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${Math.round(v)}円`} />
+                    <Tooltip formatter={(v) => formatCurrency(Number(v))} />
+                    <Legend />
+                    <Line yAxisId="left" type="monotone" dataKey="revenuePerPatient" name="患者単価" stroke="#10B981" strokeWidth={2} />
+                    <Line yAxisId="right" type="monotone" dataKey="revenuePerChairMinute" name="チェア分単価" stroke="#8B5CF6" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           ) : <p className="text-gray-500 text-center py-8">データがありません</p>}
         </CardContent>
       </Card>

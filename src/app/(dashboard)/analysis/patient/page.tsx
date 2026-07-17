@@ -167,18 +167,18 @@ export default function PatientAnalysisPage() {
                 </LineChart>
               </ResponsiveContainer>
               <div>
+                {/* 生涯売上(約26万円)と獲得単価(約5千円)は桁が2桁違うため、左右で軸を分ける */}
                 <p className="text-sm font-medium text-gray-700 mb-2">新患獲得効率の推移</p>
                 <ResponsiveContainer width="100%" height={260}>
                   <LineChart data={trendData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="label" />
                     <YAxis yAxisId="left" tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
-                    <YAxis yAxisId="right" orientation="right" unit="倍" />
-                    <Tooltip formatter={(v, name) => name === "LTV/獲得単価比" ? `${Number(v).toFixed(1)}倍` : formatCurrency(Number(v))} />
+                    <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${(v / 1000).toFixed(0)}千`} />
+                    <Tooltip formatter={(v) => formatCurrency(Number(v))} />
                     <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="revenuePerNewPatient" name="新患1人あたり生涯売上" stroke="#10B981" strokeWidth={2} />
-                    <Line yAxisId="left" type="monotone" dataKey="costPerAcquisition" name="新患獲得単価" stroke="#EF4444" strokeWidth={2} />
-                    <Line yAxisId="right" type="monotone" dataKey="ltvToCpaRatio" name="LTV/獲得単価比" stroke="#8B5CF6" strokeWidth={2} strokeDasharray="4 2" />
+                    <Line yAxisId="left" type="monotone" dataKey="revenuePerNewPatient" name="新患1人あたり生涯売上（左軸）" stroke="#10B981" strokeWidth={2} />
+                    <Line yAxisId="right" type="monotone" dataKey="costPerAcquisition" name="新患獲得単価（右軸）" stroke="#EF4444" strokeWidth={2} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
