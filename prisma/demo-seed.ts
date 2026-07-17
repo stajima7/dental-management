@@ -593,12 +593,50 @@ async function main() {
     createdInsights.push(await prisma.aiInsight.create({ data: { clinicId, yearMonth: latest, ...ins } }));
   }
 
+  // 成果の測定（PDCA）の値も入れる。完了済みのものは実績値まで持たせ、
+  // 達成・未達の表示が確認できるようにする。
   const actions = [
-    { insightId: createdInsights[0].id, title: "平日夜間の初診枠を週2コマ増設", description: "火・木の18:30〜20:00に初診専用枠を設ける。担当は院長と勤務医で交代。", status: "IN_PROGRESS" as const, assignee: "院長", dueDate: new Date("2026-08-31") },
-    { insightId: createdInsights[0].id, title: "Web予約システムの導入", description: "24時間オンライン予約を導入し、電話のみの導線を廃止する。", status: "TODO" as const, assignee: "事務長", dueDate: new Date("2026-09-30") },
-    { insightId: createdInsights[1].id, title: "TC配置を週3日に増加", description: "補綴提案時のカウンセリング実施率100%を目指す。", status: "IN_PROGRESS" as const, assignee: "事務長", dueDate: new Date("2026-08-15") },
-    { insightId: createdInsights[4].id, title: "初診時のSMS登録を必須化", description: "問診票にSMS登録欄を追加し、受付で登録を確認する。", status: "DONE" as const, assignee: "受付リーダー", dueDate: new Date("2026-07-10") },
-    { insightId: createdInsights[3].id, title: "訪問ルートの地域別再編", description: "訪問先を3エリアに分け、曜日ごとに集約する。", status: "TODO" as const, assignee: "訪問担当Dr", dueDate: new Date("2026-10-31") },
+    {
+      insightId: createdInsights[0].id, title: "平日夜間の初診枠を週2コマ増設",
+      description: "火・木の18:30〜20:00に初診専用枠を設ける。担当は院長と勤務医で交代。",
+      status: "IN_PROGRESS" as const, assignee: "院長", dueDate: new Date("2026-08-31"),
+      kpiCode: "chairUtilization", baselineValue: 72.5, targetValue: 78.0, expectedImpact: 970000,
+      startedAt: new Date("2026-07-01"),
+    },
+    {
+      insightId: createdInsights[0].id, title: "Web予約システムの導入",
+      description: "24時間オンライン予約を導入し、電話のみの導線を廃止する。",
+      status: "TODO" as const, assignee: "事務長", dueDate: new Date("2026-09-30"),
+      kpiCode: "newPatientCount", baselineValue: 50, targetValue: 58, expectedImpact: 1100000,
+    },
+    {
+      insightId: createdInsights[1].id, title: "TC配置を週3日に増加",
+      description: "補綴提案時のカウンセリング実施率100%を目指す。",
+      status: "IN_PROGRESS" as const, assignee: "事務長", dueDate: new Date("2026-08-15"),
+      kpiCode: "selfPayRatio", baselineValue: 24.5, targetValue: 25.0, expectedImpact: 85000,
+      startedAt: new Date("2026-06-15"),
+    },
+    {
+      // 目標2.0%に対し実績1.4% → 「低いほど良い」指標なので達成と判定される
+      insightId: createdInsights[4].id, title: "初診時のSMS登録を必須化",
+      description: "問診票にSMS登録欄を追加し、受付で登録を確認する。",
+      status: "DONE" as const, assignee: "受付リーダー", dueDate: new Date("2026-07-10"),
+      kpiCode: "noShowRate", baselineValue: 2.4, targetValue: 2.0, resultValue: 1.4, expectedImpact: 140000,
+      startedAt: new Date("2026-05-20"), completedAt: new Date("2026-07-08"),
+    },
+    {
+      // 目標6.0%に対し実績6.8% → 未達。達成だけでなく未達の表示も確認できるようにする
+      insightId: createdInsights[4].id, title: "前日リマインドの電話併用",
+      description: "SMSが未登録の患者に前日の電話連絡を追加する。",
+      status: "DONE" as const, assignee: "受付リーダー", dueDate: new Date("2026-06-30"),
+      kpiCode: "cancelRate", baselineValue: 7.4, targetValue: 6.0, resultValue: 6.8, expectedImpact: 112000,
+      startedAt: new Date("2026-04-10"), completedAt: new Date("2026-06-28"),
+    },
+    {
+      insightId: createdInsights[3].id, title: "訪問ルートの地域別再編",
+      description: "訪問先を3エリアに分け、曜日ごとに集約する。",
+      status: "TODO" as const, assignee: "訪問担当Dr", dueDate: new Date("2026-10-31"),
+    },
   ];
   for (const a of actions) {
     await prisma.actionPlan.create({ data: { clinicId, ...a } });

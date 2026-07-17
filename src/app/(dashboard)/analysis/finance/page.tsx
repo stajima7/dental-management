@@ -124,8 +124,8 @@ export default function FinanceAnalysisPage() {
               現在のチェア稼働率は<strong>{formatPercent(getKpi("chairUtilization"))}</strong>で、
               <strong>{formatPercent(getKpi("breakEvenChairUtilization"))}</strong>を下回ると赤字になります
               （余裕は<strong>{(getKpi("chairUtilization") - getKpi("breakEvenChairUtilization")).toFixed(1)}ポイント</strong>）。<br />
-              延患者数では<strong>{formatNumber(getKpi("totalPatientCount"))}人</strong>に対し、
-              <strong>{formatNumber(getKpi("breakEvenPatientCount"))}人</strong>が損益分岐点です。
+              延患者数では<strong>{Math.round(getKpi("totalPatientCount")).toLocaleString()}人</strong>に対し、
+              <strong>{Math.round(getKpi("breakEvenPatientCount")).toLocaleString()}人</strong>が損益分岐点です。
             </p>
           </div>
 
