@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/ui/export-button";
 import { Input } from "@/components/ui/input";
 import { COST_ITEMS, DEPARTMENT_TYPES } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
@@ -133,9 +134,10 @@ export default function CostsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">コスト登録</h1>
         <div className="flex items-center gap-3">
+          <ExportButton clinicId={selectedClinicId} type="costs" yearMonth={yearMonth} />
           {clinics.length > 1 && (
             <select
               className="border border-gray-300 rounded-md px-3 py-1.5 text-sm"

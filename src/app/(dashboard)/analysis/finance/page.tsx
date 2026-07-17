@@ -6,7 +6,8 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
 import { getKpiStatus } from "@/lib/kpi-calculator";
 import { PeriodSelector } from "@/components/ui/period-selector";
-import { Period, DEFAULT_PERIOD } from "@/lib/period";
+import { ExportButton } from "@/components/ui/export-button";
+import { Period, DEFAULT_PERIOD, resolvePeriod } from "@/lib/period";
 import { useTrend } from "@/lib/use-trend";
 import type { SeasonalityResult } from "@/lib/seasonality";
 import {
@@ -65,9 +66,12 @@ export default function FinanceAnalysisPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">財務分析</h1>
-        <input type="month" className="border border-gray-300 rounded-md px-3 py-1.5 text-sm" value={yearMonth} onChange={e => setYearMonth(e.target.value)} />
+        <div className="flex items-center gap-2">
+          <ExportButton clinicId={selectedClinicId} type="kpi" yearMonth={yearMonth} label="当月KPIをCSV出力" />
+          <input type="month" className="border border-gray-300 rounded-md px-3 py-1.5 text-sm" value={yearMonth} onChange={e => setYearMonth(e.target.value)} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -217,7 +221,16 @@ export default function FinanceAnalysisPage() {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle>売上・利益率の推移</CardTitle>
-            <PeriodSelector value={period} onChange={setPeriod} baseMonth={yearMonth} />
+            <div className="flex flex-wrap items-center gap-2">
+              <PeriodSelector value={period} onChange={setPeriod} baseMonth={yearMonth} />
+              <ExportButton
+                clinicId={selectedClinicId}
+                type="trend"
+                from={resolvePeriod(period, yearMonth).from}
+                to={resolvePeriod(period, yearMonth).to}
+                label="この期間をCSV出力"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
