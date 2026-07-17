@@ -86,7 +86,9 @@ export const KPI_DEFINITIONS: Record<string, {
   homeVisitRevenue:        { name: "訪問売上",           unit: "円",  category: "売上",   format: "currency", higherIsBetter: true },
   selfPayRatio:            { name: "自費率",             unit: "%",   category: "売上",   format: "percent",  higherIsBetter: true,  benchmark: 20 },
   insurancePoints:         { name: "保険点数",           unit: "点",  category: "売上",   format: "number",   higherIsBetter: true },
-  revenuePerPoint:         { name: "1点あたり単価",      unit: "円",  category: "売上",   format: "decimal",  higherIsBetter: true,  benchmark: 10 },
+  // 1点=10円が理論上の上限で超えることはないため、閾値を10円にすると永遠に達成できない。
+  // 返戻・査定減率のベンチマーク2%と揃えて9.8円（=査定減2%以内）を良好とする。
+  revenuePerPoint:         { name: "1点あたり単価",      unit: "円",  category: "売上",   format: "decimal",  higherIsBetter: true,  benchmark: 9.8 },
   pointDeductionRate:      { name: "返戻・査定減率",     unit: "%",   category: "売上",   format: "percent",  higherIsBetter: false, benchmark: 2 },
   totalPatientCount:       { name: "延患者数",           unit: "人",  category: "患者",   format: "number",   higherIsBetter: true },
   uniquePatientCount:      { name: "実患者数",           unit: "人",  category: "患者",   format: "number",   higherIsBetter: true },
