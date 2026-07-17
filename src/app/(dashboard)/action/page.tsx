@@ -5,6 +5,15 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatCurrency } from "@/lib/utils";
+import type { Opportunity } from "@/lib/improvement-simulator";
+
+// 難易度のラベル(DIFFICULTY_LABELS)はAI診断結果と共通のものを下部で定義している
+const DIFFICULTY_COLORS: Record<string, string> = {
+  LOW: "bg-green-100 text-green-700",
+  MEDIUM: "bg-yellow-100 text-yellow-700",
+  HIGH: "bg-red-100 text-red-700",
+};
 
 interface AiInsight {
   id: string;
@@ -34,7 +43,7 @@ interface ActionPlan {
 
 interface ClinicInfo { id: string; clinicName: string; }
 
-type TabType = "insights" | "plans";
+type TabType = "simulation" | "insights" | "plans";
 
 const CATEGORY_LABELS: Record<string, string> = { revenue: "売上", patient: "患者", cost: "コスト", productivity: "生産性", profit: "収益性", operation: "運営" };
 const CATEGORY_COLORS: Record<string, string> = { revenue: "bg-blue-100 text-blue-700", patient: "bg-green-100 text-green-700", cost: "bg-red-100 text-red-700", productivity: "bg-purple-100 text-purple-700", profit: "bg-amber-100 text-amber-700", operation: "bg-gray-100 text-gray-700" };
@@ -44,7 +53,7 @@ const STATUS_LABELS: Record<string, string> = { TODO: "未着手", IN_PROGRESS: 
 const STATUS_COLORS: Record<string, string> = { TODO: "bg-gray-100 text-gray-700", IN_PROGRESS: "bg-blue-100 text-blue-700", DONE: "bg-green-100 text-green-700", CANCELLED: "bg-red-100 text-red-700" };
 
 export default function ActionPage() {
-  const [activeTab, setActiveTab] = useState<TabType>("insights");
+  const [activeTab, setActiveTab] = useState<TabType>("simulation");
   const [clinics, setClinics] = useState<ClinicInfo[]>([]);
   const [selectedClinicId, setSelectedClinicId] = useState("");
   const [yearMonth, setYearMonth] = useState(() => {
@@ -53,6 +62,7 @@ export default function ActionPage() {
   });
   const [insights, setInsights] = useState<AiInsight[]>([]);
   const [plans, setPlans] = useState<ActionPlan[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -71,8 +81,15 @@ export default function ActionPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedClinicId) { loadInsights(); loadPlans(); }
+    if (selectedClinicId) { loadInsights(); loadPlans(); loadOpportunities(); }
   }, [selectedClinicId, yearMonth]);
+
+  const loadOpportunities = async () => {
+    try {
+      const res = await fetch(`/api/improvement?clinicId=${selectedClinicId}&yearMonth=${yearMonth}`);
+      if (res.ok) { const data = await res.json(); setOpportunities(data.opportunities ?? []); }
+    } catch { /* ignore */ }
+  };
 
   const loadInsights = async () => {
     setLoading(true);
@@ -180,6 +197,7 @@ export default function ActionPage() {
       {/* タブ */}
       <div className="flex border-b border-gray-200">
         {[
+          { key: "simulation" as TabType, label: `改善額シミュレーション (${opportunities.length})` },
           { key: "insights" as TabType, label: `AI診断結果 (${insights.length})` },
           { key: "plans" as TabType, label: `改善アクション (${plans.length})` },
         ].map((tab) => (
@@ -190,6 +208,92 @@ export default function ActionPage() {
       </div>
 
       {/* AI診断結果タブ */}
+      {activeTab === "simulation" && (
+        <div className="space-y-4">
+          {opportunities.length === 0 ? (
+            <Card>
+              <CardContent>
+                <p className="py-12 text-center text-gray-500">
+                  改善余地のある項目はありません。すべての指標が目標値を達成しています。
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <Card>
+                <CardContent>
+                  <div className="py-2">
+                    <p className="text-sm text-gray-600">改善余地の合計（月次・上限値）</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-1">
+                      {formatCurrency(opportunities.reduce((s, o) => s + o.monthlyImpact, 0))}
+                      <span className="text-base font-normal text-gray-500 ml-3">
+                        年換算 {formatCurrency(opportunities.reduce((s, o) => s + o.monthlyImpact, 0) * 12)}
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-3 leading-relaxed">
+                      各項目は独立に試算しています。施策どうしが重複するため（例: チェアを埋めれば人件費率も下がる）、
+                      <strong>合計は単純合算であり、実際の効果はこれより小さくなります</strong>。個別の金額を優先順位づけにお使いください。
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {opportunities.map((op, i) => (
+                <Card key={op.code}>
+                  <CardContent>
+                    <div className="py-2">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">{i + 1}</span>
+                          <h3 className="font-semibold text-gray-900">{op.title}</h3>
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-xs ${DIFFICULTY_COLORS[op.difficulty]}`}>
+                            難易度: {DIFFICULTY_LABELS[op.difficulty]}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xl font-bold text-green-700">＋{formatCurrency(op.monthlyImpact)}</p>
+                          <p className="text-xs text-gray-500">月次／年換算 {formatCurrency(op.monthlyImpact * 12)}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-3 text-sm">
+                        <span className="px-2 py-1 rounded bg-red-50 text-red-700 font-medium">現状 {op.current}</span>
+                        <span className="text-gray-400">→</span>
+                        <span className="px-2 py-1 rounded bg-green-50 text-green-700 font-medium">目標 {op.target}</span>
+                      </div>
+
+                      <p className="text-sm text-gray-700 mt-3">{op.problem}</p>
+                      <div className="mt-3 p-3 rounded bg-blue-50">
+                        <p className="text-xs font-medium text-blue-900 mb-1">打ち手</p>
+                        <p className="text-sm text-blue-900">{op.suggestion}</p>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="mt-3"
+                        onClick={() => {
+                          setFormData({
+                            title: op.title,
+                            description: `${op.problem}\n\n【打ち手】${op.suggestion}\n\n【想定効果】月${formatCurrency(op.monthlyImpact)}（${op.current} → ${op.target}）`,
+                            status: "TODO", dueDate: "", assignee: "", insightId: "",
+                          });
+                          setEditingPlan(null);
+                          setShowForm(true);
+                          setActiveTab("plans");
+                        }}
+                      >
+                        アクションに追加
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
       {activeTab === "insights" && (
         <>
           {loading && <p className="text-gray-500">読み込み中...</p>}
