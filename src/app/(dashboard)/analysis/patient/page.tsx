@@ -5,6 +5,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { formatNumber, formatPercent } from "@/lib/utils";
 import { getKpiStatus } from "@/lib/kpi-calculator";
+import { PeriodSelector } from "@/components/ui/period-selector";
+import { Period, DEFAULT_PERIOD } from "@/lib/period";
+import { useTrend } from "@/lib/use-trend";
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
 
 interface KpiData { kpiCode: string; kpiValue: number; }
 const statusMap = (s: string) => s === "good" ? "positive" as const : s === "warning" ? "warning" as const : s === "danger" ? "critical" as const : "neutral" as const;
@@ -16,6 +23,8 @@ export default function PatientAnalysisPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
   const [kpis, setKpis] = useState<KpiData[]>([]);
+  const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
+  const { rows: trendData } = useTrend(selectedClinicId, period, yearMonth);
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
@@ -91,6 +100,45 @@ export default function PatientAnalysisPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle>患者動向の推移</CardTitle>
+            <PeriodSelector value={period} onChange={setPeriod} baseMonth={yearMonth} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {trendData.length > 0 ? (
+            <div className="space-y-6">
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis />
+                  <Tooltip formatter={(v) => `${formatNumber(Number(v))}人`} />
+                  <Legend />
+                  <Bar dataKey="newPatientCount" name="新患数" fill="#10B981" />
+                  <Bar dataKey="uniquePatientCount" name="実患者数" fill="#3B82F6" />
+                </BarChart>
+              </ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis unit="%" />
+                  <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
+                  <Legend />
+                  <Line type="monotone" dataKey="returnRate" name="再来率" stroke="#3B82F6" strokeWidth={2} />
+                  <Line type="monotone" dataKey="maintenanceTransitionRate" name="メンテ移行率" stroke="#10B981" strokeWidth={2} />
+                  <Line type="monotone" dataKey="cancelRate" name="キャンセル率" stroke="#F59E0B" strokeWidth={2} />
+                  <Line type="monotone" dataKey="discontinuedRate" name="中断率" stroke="#EF4444" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : <p className="text-gray-500 text-center py-8">データがありません</p>}
+        </CardContent>
+      </Card>
     </div>
   );
 }

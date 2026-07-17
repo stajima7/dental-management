@@ -5,8 +5,12 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { formatCurrency, formatPercent } from "@/lib/utils";
 import { getKpiStatus } from "@/lib/kpi-calculator";
+import { PeriodSelector } from "@/components/ui/period-selector";
+import { Period, DEFAULT_PERIOD } from "@/lib/period";
+import { useTrend } from "@/lib/use-trend";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 
 interface KpiData { kpiCode: string; kpiValue: number; }
@@ -20,6 +24,8 @@ export default function FinanceAnalysisPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
   const [kpis, setKpis] = useState<KpiData[]>([]);
+  const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
+  const { rows: trendData } = useTrend(selectedClinicId, period, yearMonth);
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
@@ -98,6 +104,47 @@ export default function FinanceAnalysisPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle>売上・利益率の推移</CardTitle>
+            <PeriodSelector value={period} onChange={setPeriod} baseMonth={yearMonth} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {trendData.length > 0 ? (
+            <div className="space-y-6">
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
+                  <Tooltip formatter={(v) => formatCurrency(Number(v))} />
+                  <Legend />
+                  <Bar dataKey="insuranceRevenue" name="保険" fill={COLORS[0]} stackId="a" />
+                  <Bar dataKey="selfPayRevenue" name="自費" fill={COLORS[1]} stackId="a" />
+                  <Bar dataKey="maintenanceRevenue" name="メンテ" fill={COLORS[2]} stackId="a" />
+                  <Bar dataKey="homeVisitRevenue" name="訪問" fill={COLORS[3]} stackId="a" />
+                </BarChart>
+              </ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis unit="%" />
+                  <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
+                  <Legend />
+                  <Line type="monotone" dataKey="grossProfitRate" name="粗利益率" stroke={COLORS[0]} strokeWidth={2} />
+                  <Line type="monotone" dataKey="operatingProfitRate" name="営業利益率" stroke={COLORS[1]} strokeWidth={2} />
+                  <Line type="monotone" dataKey="selfPayRatio" name="自費率" stroke={COLORS[2]} strokeWidth={2} />
+                  <Line type="monotone" dataKey="laborCostRatio" name="人件費率" stroke={COLORS[3]} strokeWidth={2} strokeDasharray="4 2" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : <p className="text-gray-500 text-center py-8">データがありません</p>}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -6,6 +6,9 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
 import { getKpiStatus, KPI_DEFINITIONS } from "@/lib/kpi-calculator";
+import { PeriodSelector } from "@/components/ui/period-selector";
+import { Period, DEFAULT_PERIOD } from "@/lib/period";
+import { useTrend } from "@/lib/use-trend";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
@@ -48,7 +51,7 @@ export default function DashboardPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
   const [kpis, setKpis] = useState<KpiData[]>([]);
-  const [trendData, setTrendData] = useState<Record<string, number>[]>([]);
+  const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
   const [loading, setLoading] = useState(false);
 
   const [noClinic, setNoClinic] = useState(false);
@@ -87,41 +90,11 @@ export default function DashboardPage() {
     setLoading(false);
   }, [selectedClinicId, yearMonth]);
 
-  // トレンドデータ取得（過去6ヶ月分）
-  const fetchTrend = useCallback(async () => {
-    if (!selectedClinicId) return;
-    const months = getLast6Months(yearMonth);
-    const results: Record<string, number>[] = [];
-
-    for (const m of months) {
-      try {
-        const res = await fetch(`/api/kpi?clinicId=${selectedClinicId}&yearMonth=${m}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            const row: Record<string, number> = { month: parseInt(m.split("-")[1]) };
-            for (const kpi of data) {
-              row[kpi.kpiCode] = kpi.kpiValue;
-            }
-            results.push(row);
-          }
-        }
-      } catch {
-        // skip
-      }
-    }
-    setTrendData(results);
-  }, [selectedClinicId, yearMonth]);
+  const { rows: trendData } = useTrend(selectedClinicId, period, yearMonth);
 
   useEffect(() => {
     fetchKpis();
   }, [fetchKpis]);
-
-  useEffect(() => {
-    if (kpis.length > 0) {
-      fetchTrend();
-    }
-  }, [kpis.length > 0, selectedClinicId]);
 
   const getKpi = (code: string): KpiData | undefined =>
     kpis.find((k) => k.kpiCode === code);
@@ -171,6 +144,13 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {kpis.length > 0 && (
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-600 whitespace-nowrap">推移グラフの期間</span>
+          <PeriodSelector value={period} onChange={setPeriod} baseMonth={yearMonth} />
+        </div>
+      )}
 
       {noClinic && (
         <Card>
@@ -262,13 +242,14 @@ export default function DashboardPage() {
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={trendData}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" tickFormatter={(v) => `${v}月`} />
+                      <XAxis dataKey="label" />
                       <YAxis tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
                       <Tooltip formatter={(v) => formatCurrency(Number(v))} />
                       <Legend />
                       <Bar dataKey="insuranceRevenue" name="保険" fill={CHART_COLORS[0]} stackId="a" />
                       <Bar dataKey="selfPayRevenue" name="自費" fill={CHART_COLORS[1]} stackId="a" />
                       <Bar dataKey="maintenanceRevenue" name="メンテ" fill={CHART_COLORS[2]} stackId="a" />
+                      <Bar dataKey="homeVisitRevenue" name="訪問" fill={CHART_COLORS[3]} stackId="a" />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -313,7 +294,7 @@ export default function DashboardPage() {
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={trendData}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" tickFormatter={(v) => `${v}月`} />
+                      <XAxis dataKey="label" />
                       <YAxis />
                       <Tooltip />
                       <Legend />
@@ -335,7 +316,7 @@ export default function DashboardPage() {
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={trendData}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" tickFormatter={(v) => `${v}月`} />
+                      <XAxis dataKey="label" />
                       <YAxis tickFormatter={(v) => `${v}%`} />
                       <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
                       <Legend />
@@ -405,14 +386,4 @@ export default function DashboardPage() {
       )}
     </div>
   );
-}
-
-function getLast6Months(current: string): string[] {
-  const [y, m] = current.split("-").map(Number);
-  const months: string[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(y, m - 1 - i, 1);
-    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  }
-  return months;
 }

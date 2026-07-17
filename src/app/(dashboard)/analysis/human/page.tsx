@@ -6,8 +6,11 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { getKpiStatus } from "@/lib/kpi-calculator";
+import { PeriodSelector } from "@/components/ui/period-selector";
+import { Period, DEFAULT_PERIOD } from "@/lib/period";
+import { useTrend } from "@/lib/use-trend";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 
 interface ClinicInfo { id: string; clinicName: string; }
@@ -24,6 +27,8 @@ export default function HumanAnalysisPage() {
   });
   const [kpis, setKpis] = useState<KpiData[]>([]);
   const [profile, setProfile] = useState<Record<string, number>>({});
+  const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
+  const { rows: trendData } = useTrend(selectedClinicId, period, yearMonth);
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
@@ -116,6 +121,32 @@ export default function HumanAnalysisPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle>生産性の推移</CardTitle>
+            <PeriodSelector value={period} onChange={setPeriod} baseMonth={yearMonth} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {trendData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={320}>
+              <LineChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="label" />
+                <YAxis yAxisId="left" tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
+                <YAxis yAxisId="right" orientation="right" unit="%" />
+                <Tooltip formatter={(v, name) => name === "人件費率" ? `${Number(v).toFixed(1)}%` : formatCurrency(Number(v))} />
+                <Legend />
+                <Line yAxisId="left" type="monotone" dataKey="revenuePerDentist" name="Dr1人当たり売上" stroke="#3B82F6" strokeWidth={2} />
+                <Line yAxisId="left" type="monotone" dataKey="revenuePerHygienist" name="DH1人当たり売上" stroke="#10B981" strokeWidth={2} />
+                <Line yAxisId="right" type="monotone" dataKey="laborCostRatio" name="人件費率" stroke="#EF4444" strokeWidth={2} strokeDasharray="4 2" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : <p className="text-gray-500 text-center py-8">データがありません</p>}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -4,6 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { formatCurrency, formatNumber } from "@/lib/utils";
+import { PeriodSelector } from "@/components/ui/period-selector";
+import { Period, DEFAULT_PERIOD } from "@/lib/period";
+import { useTrend } from "@/lib/use-trend";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
 
 interface ClinicInfo { id: string; clinicName: string; }
 interface KpiData { kpiCode: string; kpiValue: number; }
@@ -17,6 +23,8 @@ export default function EquipmentAnalysisPage() {
   });
   const [kpis, setKpis] = useState<KpiData[]>([]);
   const [profile, setProfile] = useState<Record<string, unknown>>({});
+  const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
+  const { rows: trendData } = useTrend(selectedClinicId, period, yearMonth);
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
@@ -55,7 +63,15 @@ export default function EquipmentAnalysisPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">設備分析</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">設備分析</h1>
+        <input
+          type="month"
+          className="border border-gray-300 rounded-md px-3 py-1.5 text-sm"
+          value={yearMonth}
+          onChange={e => e.target.value && setYearMonth(e.target.value)}
+        />
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard label="ユニット数" value={`${unitCount}台`} status="neutral" />
@@ -105,6 +121,32 @@ export default function EquipmentAnalysisPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle>ユニット生産性の推移</CardTitle>
+            <PeriodSelector value={period} onChange={setPeriod} baseMonth={yearMonth} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {trendData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={320}>
+              <LineChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="label" />
+                <YAxis yAxisId="left" tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
+                <YAxis yAxisId="right" orientation="right" unit="人" />
+                <Tooltip formatter={(v, name) => name === "1日平均来院数" ? `${Number(v).toFixed(1)}人` : formatCurrency(Number(v))} />
+                <Legend />
+                <Line yAxisId="left" type="monotone" dataKey="revenuePerUnit" name="ユニット1台当たり売上" stroke="#3B82F6" strokeWidth={2} />
+                <Line yAxisId="left" type="monotone" dataKey="revenuePerPatient" name="患者単価" stroke="#10B981" strokeWidth={2} />
+                <Line yAxisId="right" type="monotone" dataKey="patientsPerDay" name="1日平均来院数" stroke="#F59E0B" strokeWidth={2} strokeDasharray="4 2" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : <p className="text-gray-500 text-center py-8">データがありません</p>}
+        </CardContent>
+      </Card>
     </div>
   );
 }
