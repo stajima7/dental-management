@@ -50,6 +50,7 @@ export default function SetupPage() {
   // Step 3: 稼働
   const [clinicDaysPerMonth, setClinicDaysPerMonth] = useState<number | "">(22);
   const [avgHoursPerDay, setAvgHoursPerDay] = useState<number | "">(8);
+  const [avgTreatmentMinutes, setAvgTreatmentMinutes] = useState<number | "">(45);
   const [workHours, setWorkHours] = useState("9:00-18:00");
   const [avgOvertimeHours, setAvgOvertimeHours] = useState<number | "">(0);
 
@@ -113,6 +114,7 @@ export default function SetupPage() {
           hasOperationRoom,
           clinicDaysPerMonth: clinicDaysPerMonth || 22,
           avgHoursPerDay: avgHoursPerDay || 8,
+          avgTreatmentMinutes: avgTreatmentMinutes || 45,
           avgOvertimeHours: avgOvertimeHours || 0,
           workHours,
         }),
@@ -283,6 +285,13 @@ export default function SetupPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>月間診療日数</Label>{numInput(clinicDaysPerMonth, setClinicDaysPerMonth, "22")}</div>
                 <div><Label>1日平均診療時間</Label>{numInput(avgHoursPerDay, setAvgHoursPerDay, "8")}</div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>1患者あたり平均チェア占有時間（分）</Label>
+                  {numInput(avgTreatmentMinutes, setAvgTreatmentMinutes, "45")}
+                  <p className="text-xs text-gray-500 mt-1">チェア稼働率の算出に使います</p>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>診療時間</Label><Input value={workHours} onChange={e => setWorkHours(e.target.value)} placeholder="9:00-18:00" className="mt-1" /></div>

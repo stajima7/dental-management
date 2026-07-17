@@ -45,7 +45,16 @@ export interface ProfileData {
   fulltimeHygienistCount: number;
   parttimeHygienistCount: number;
   clinicDaysPerMonth: number;
+  avgHoursPerDay?: number;
+  avgTreatmentMinutes?: number;
 }
+
+/**
+ * チェア稼働率の現実的な上限。
+ * 準備・片付け・急患枠・キャンセル発生を考慮すると100%は達成不可能なため、
+ * 空き枠損失額はこの水準までを「埋められる余地」として試算する。
+ */
+export const CHAIR_UTILIZATION_CEILING = 85;
 
 export interface KpiResult {
   kpiCode: string;
@@ -80,6 +89,11 @@ export const KPI_DEFINITIONS: Record<string, {
   cancelRate:              { name: "キャンセル率",       unit: "%",   category: "患者",   format: "percent",  higherIsBetter: false, benchmark: 10 },
   revenuePerUnit:          { name: "ユニット1台あたり売上",     unit: "円", category: "生産性", format: "currency", higherIsBetter: true, benchmark: 1500000 },
   revenuePerActiveUnit:    { name: "稼働ユニット1台あたり売上", unit: "円", category: "生産性", format: "currency", higherIsBetter: true },
+  chairUtilization:        { name: "チェア稼働率",       unit: "%",   category: "生産性", format: "percent",  higherIsBetter: true,  benchmark: 75 },
+  chairMinutesUsed:        { name: "チェア稼働時間",     unit: "分",  category: "生産性", format: "number",   higherIsBetter: true },
+  chairMinutesAvailable:   { name: "チェア稼働可能時間", unit: "分",  category: "生産性", format: "number",   higherIsBetter: true },
+  revenuePerChairMinute:   { name: "チェア分単価",       unit: "円",  category: "生産性", format: "currency", higherIsBetter: true },
+  idleChairLoss:           { name: "空き枠損失額",       unit: "円",  category: "生産性", format: "currency", higherIsBetter: false },
   dentistFte:              { name: "歯科医師FTE",       unit: "人",  category: "人員",   format: "decimal",  higherIsBetter: true },
   hygienistFte:            { name: "衛生士FTE",         unit: "人",  category: "人員",   format: "decimal",  higherIsBetter: true },
   revenuePerDentist:       { name: "Dr1人あたり売上",    unit: "円",  category: "生産性", format: "currency", higherIsBetter: true },
@@ -188,6 +202,30 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
 
   const revenuePerActiveUnit = profile.activeUnitCount > 0 ? effectiveTotalRevenue / profile.activeUnitCount : 0;
   push("revenuePerActiveUnit", revenuePerActiveUnit);
+
+  // --- チェア稼働率（時間ベース）---
+  // 実際に診療で埋まった時間が、診療可能な時間の何%かを見る。
+  // 「稼働ユニット数÷ユニット数」は設備の有無を示すだけで、稼働の実態を表さない。
+  const chairCount = profile.activeUnitCount || profile.unitCount;
+  const avgHoursPerDay = profile.avgHoursPerDay ?? 8;
+  const avgTreatmentMinutes = profile.avgTreatmentMinutes ?? 45;
+
+  const chairMinutesUsed = totalPatientCount * avgTreatmentMinutes;
+  const chairMinutesAvailable = chairCount * profile.clinicDaysPerMonth * avgHoursPerDay * 60;
+  const chairUtilization = chairMinutesAvailable > 0 ? (chairMinutesUsed / chairMinutesAvailable) * 100 : 0;
+
+  push("chairMinutesUsed", chairMinutesUsed);
+  push("chairMinutesAvailable", chairMinutesAvailable);
+  push("chairUtilization", chairUtilization);
+
+  // チェア1分あたりいくら稼いでいるか。保険と自費の差が最も出る指標
+  const revenuePerChairMinute = chairMinutesUsed > 0 ? effectiveTotalRevenue / chairMinutesUsed : 0;
+  push("revenuePerChairMinute", revenuePerChairMinute);
+
+  // 空き枠損失額 = 上限稼働率まで埋めた場合に得られたはずの売上
+  const targetMinutes = chairMinutesAvailable * (CHAIR_UTILIZATION_CEILING / 100);
+  const idleMinutes = Math.max(0, targetMinutes - chairMinutesUsed);
+  push("idleChairLoss", idleMinutes * revenuePerChairMinute);
 
   // FTE計算（PT=0.5）
   const dentistFte = profile.fulltimeDentistCount + profile.parttimeDentistCount * 0.5;

@@ -54,6 +54,7 @@ export async function POST(
         hasOperationRoom: body.hasOperationRoom || false,
         clinicDaysPerMonth: body.clinicDaysPerMonth || 22,
         avgHoursPerDay: body.avgHoursPerDay || 8,
+        avgTreatmentMinutes: body.avgTreatmentMinutes || 45,
         avgOvertimeHours: body.avgOvertimeHours || 0,
         workHours: body.workHours || null,
       },

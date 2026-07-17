@@ -156,6 +156,8 @@ model ClinicProfile {
   avgHoursPerDay         Float    @default(8)
   avgOvertimeHours       Float    @default(0)
   workHours              String?
+  // チェア稼働率の算出に使う。1患者あたりの平均チェア占有時間（分）
+  avgTreatmentMinutes    Int      @default(45)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 

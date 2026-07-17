@@ -25,6 +25,7 @@ const KPI_CODES_USED_BY_UI = [
   "grossProfitRate", "operatingProfitRate", "laborCostRatio", "dentistFte", "hygienistFte",
   "revenuePerDentist", "revenuePerHygienist", "revenuePerPatient", "revenuePerUnit",
   "selfPayRatio", "discontinuedRate", "materialCostRatio",
+  "chairUtilization", "chairMinutesUsed", "chairMinutesAvailable", "revenuePerChairMinute", "idleChairLoss",
 ];
 
 async function main() {
@@ -143,6 +144,9 @@ async function main() {
     ["メンテ移行率", v("maintenanceTransitionRate").toFixed(1) + "%", "BM30%"],
     ["キャンセル率", v("cancelRate").toFixed(1) + "%", "BM10%"],
     ["ユニット1台売上", yen(v("revenuePerUnit")), "BM150万円"],
+    ["チェア稼働率", v("chairUtilization").toFixed(1) + "%", "BM75%（上限85%）"],
+    ["チェア分単価", yen(v("revenuePerChairMinute")), "歯科の目安200〜400円"],
+    ["空き枠損失額", yen(v("idleChairLoss")), "稼働率85%まで埋めた場合の増収余地"],
   ];
   for (const [name, value, bm] of rows) console.log(`     ${name.padEnd(16)} ${value.padStart(14)}   ${bm}`);
 

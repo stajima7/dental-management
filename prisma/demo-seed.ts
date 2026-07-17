@@ -301,6 +301,7 @@ async function main() {
     avgHoursPerDay: 8.5,
     avgOvertimeHours: 1.2,
     workHours: "9:00-18:30",
+    avgTreatmentMinutes: 45,
   };
   const existingProfile = await prisma.clinicProfile.findFirst({ where: { clinicId } });
   if (existingProfile) {

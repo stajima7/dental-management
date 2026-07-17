@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
+import { getKpiStatus, CHAIR_UTILIZATION_CEILING } from "@/lib/kpi-calculator";
 import { PeriodSelector } from "@/components/ui/period-selector";
 import { Period, DEFAULT_PERIOD } from "@/lib/period";
 import { useTrend } from "@/lib/use-trend";
@@ -13,6 +14,8 @@ import {
 
 interface ClinicInfo { id: string; clinicName: string; }
 interface KpiData { kpiCode: string; kpiValue: number; }
+
+const statusMap = (s: string) => s === "good" ? "positive" as const : s === "warning" ? "warning" as const : s === "danger" ? "critical" as const : "neutral" as const;
 
 export default function EquipmentAnalysisPage() {
   const [clinics, setClinics] = useState<ClinicInfo[]>([]);
@@ -52,7 +55,7 @@ export default function EquipmentAnalysisPage() {
 
   const unitCount = (profile.unitCount as number) || 0;
   const activeUnitCount = (profile.activeUnitCount as number) || 0;
-  const unitUtilization = unitCount > 0 ? (activeUnitCount / unitCount) * 100 : 0;
+  const chairUtilization = getKpi("chairUtilization");
 
   const equipment = [
     { name: "CT", has: profile.hasCt },
@@ -74,10 +77,18 @@ export default function EquipmentAnalysisPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard label="ユニット数" value={`${unitCount}台`} status="neutral" />
-        <KpiCard label="稼働ユニット数" value={`${activeUnitCount}台`} status="neutral" />
-        <KpiCard label="ユニット稼働率" value={`${unitUtilization.toFixed(0)}%`} status={unitUtilization >= 80 ? "positive" : "warning"} />
-        <KpiCard label="ユニット当たり売上" value={formatCurrency(getKpi("revenuePerUnit"))} status={getKpi("revenuePerUnit") >= 1500000 ? "positive" : "warning"} />
+        <KpiCard
+          label="チェア稼働率"
+          value={formatPercent(chairUtilization)}
+          status={statusMap(getKpiStatus("chairUtilization", chairUtilization))}
+        />
+        <KpiCard label="チェア分単価" value={formatCurrency(getKpi("revenuePerChairMinute"))} status="neutral" />
+        <KpiCard
+          label="空き枠損失額"
+          value={formatCurrency(getKpi("idleChairLoss"))}
+          status={getKpi("idleChairLoss") > 0 ? "warning" : "positive"}
+        />
+        <KpiCard label="ユニット当たり売上" value={formatCurrency(getKpi("revenuePerUnit"))} status={statusMap(getKpiStatus("revenuePerUnit", getKpi("revenuePerUnit")))} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -98,16 +109,28 @@ export default function EquipmentAnalysisPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>稼働効率</CardTitle></CardHeader>
+          <CardHeader><CardTitle>チェア稼働の内訳</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-3">
               <div className="flex justify-between py-2 border-b">
-                <span className="text-sm text-gray-600">月間診療日数</span>
-                <span className="font-medium">{(profile.clinicDaysPerMonth as number) || 22}日</span>
+                <span className="text-sm text-gray-600">チェア数（稼働／保有）</span>
+                <span className="font-medium">{activeUnitCount}台 / {unitCount}台</span>
               </div>
               <div className="flex justify-between py-2 border-b">
-                <span className="text-sm text-gray-600">1日平均診療時間</span>
-                <span className="font-medium">{(profile.avgHoursPerDay as number) || 8}時間</span>
+                <span className="text-sm text-gray-600">月間診療日数 × 1日診療時間</span>
+                <span className="font-medium">{(profile.clinicDaysPerMonth as number) || 22}日 × {(profile.avgHoursPerDay as number) || 8}時間</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-sm text-gray-600">1患者あたり平均チェア占有時間</span>
+                <span className="font-medium">{(profile.avgTreatmentMinutes as number) || 45}分</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-sm text-gray-600">稼働可能時間</span>
+                <span className="font-medium">{formatNumber(getKpi("chairMinutesAvailable"))}分</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-sm text-gray-600">うち診療で埋まった時間</span>
+                <span className="font-medium">{formatNumber(getKpi("chairMinutesUsed"))}分</span>
               </div>
               <div className="flex justify-between py-2 border-b">
                 <span className="text-sm text-gray-600">1日平均来院数</span>
@@ -118,6 +141,10 @@ export default function EquipmentAnalysisPage() {
                 <span className="font-medium">{formatCurrency(getKpi("revenuePerPatient"))}</span>
               </div>
             </div>
+            <p className="text-xs text-gray-500 mt-4 leading-relaxed">
+              空き枠損失額は、チェア稼働率を上限{CHAIR_UTILIZATION_CEILING}%まで埋めた場合に得られたはずの売上です。
+              準備・片付け・急患枠を考慮すると100%は達成できないため、上限を{CHAIR_UTILIZATION_CEILING}%としています。
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -136,12 +163,12 @@ export default function EquipmentAnalysisPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="label" />
                 <YAxis yAxisId="left" tickFormatter={(v) => `${(v / 10000).toFixed(0)}万`} />
-                <YAxis yAxisId="right" orientation="right" unit="人" />
-                <Tooltip formatter={(v, name) => name === "1日平均来院数" ? `${Number(v).toFixed(1)}人` : formatCurrency(Number(v))} />
+                <YAxis yAxisId="right" orientation="right" unit="%" />
+                <Tooltip formatter={(v, name) => name === "チェア稼働率" ? `${Number(v).toFixed(1)}%` : formatCurrency(Number(v))} />
                 <Legend />
                 <Line yAxisId="left" type="monotone" dataKey="revenuePerUnit" name="ユニット1台当たり売上" stroke="#3B82F6" strokeWidth={2} />
                 <Line yAxisId="left" type="monotone" dataKey="revenuePerPatient" name="患者単価" stroke="#10B981" strokeWidth={2} />
-                <Line yAxisId="right" type="monotone" dataKey="patientsPerDay" name="1日平均来院数" stroke="#F59E0B" strokeWidth={2} strokeDasharray="4 2" />
+                <Line yAxisId="right" type="monotone" dataKey="chairUtilization" name="チェア稼働率" stroke="#F59E0B" strokeWidth={2} strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
           ) : <p className="text-gray-500 text-center py-8">データがありません</p>}

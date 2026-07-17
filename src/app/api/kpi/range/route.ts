@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
         unitCount: 0, activeUnitCount: 0,
         fulltimeDentistCount: 0, parttimeDentistCount: 0,
         fulltimeHygienistCount: 0, parttimeHygienistCount: 0,
-        clinicDaysPerMonth: 22,
+        clinicDaysPerMonth: 22, avgHoursPerDay: 8, avgTreatmentMinutes: 45,
       };
 
       for (const yearMonth of missing) {

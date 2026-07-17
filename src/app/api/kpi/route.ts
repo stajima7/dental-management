@@ -65,6 +65,8 @@ export async function GET(req: NextRequest) {
       fulltimeHygienistCount: 0,
       parttimeHygienistCount: 0,
       clinicDaysPerMonth: 22,
+      avgHoursPerDay: 8,
+      avgTreatmentMinutes: 45,
     };
 
     const kpis = calculateKpis(

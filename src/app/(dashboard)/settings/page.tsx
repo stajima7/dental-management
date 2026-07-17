@@ -43,6 +43,7 @@ interface ProfileData {
   clinicDaysPerMonth: number;
   avgHoursPerDay: number;
   avgOvertimeHours: number;
+  avgTreatmentMinutes: number;
 }
 
 export default function SettingsPage() {
@@ -111,6 +112,7 @@ export default function SettingsPage() {
             clinicDaysPerMonth: data.profile.clinicDaysPerMonth || 22,
             avgHoursPerDay: data.profile.avgHoursPerDay || 8,
             avgOvertimeHours: data.profile.avgOvertimeHours || 0,
+            avgTreatmentMinutes: data.profile.avgTreatmentMinutes || 45,
           });
         }
 
@@ -358,6 +360,11 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div><Label>月間診療日数</Label><Input type="number" value={profile.clinicDaysPerMonth} onChange={(e) => setProfile({ ...profile, clinicDaysPerMonth: Number(e.target.value) || 22 })} /></div>
               <div><Label>1日平均診療時間</Label><Input type="number" step="0.5" value={profile.avgHoursPerDay} onChange={(e) => setProfile({ ...profile, avgHoursPerDay: Number(e.target.value) || 8 })} /></div>
+              <div>
+                <Label>1患者あたり平均チェア占有時間（分）</Label>
+                <Input type="number" value={profile.avgTreatmentMinutes} onChange={(e) => setProfile({ ...profile, avgTreatmentMinutes: Number(e.target.value) || 45 })} />
+                <p className="text-xs text-gray-500 mt-1">チェア稼働率の算出に使います</p>
+              </div>
               <div><Label>月間残業時間（平均）</Label><Input type="number" step="0.5" value={profile.avgOvertimeHours} onChange={(e) => setProfile({ ...profile, avgOvertimeHours: Number(e.target.value) || 0 })} /></div>
             </div>
             <div className="mt-4 p-3 bg-blue-50 rounded text-sm">
