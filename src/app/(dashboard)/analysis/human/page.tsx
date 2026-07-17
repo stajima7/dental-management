@@ -117,6 +117,24 @@ export default function HumanAnalysisPage() {
                 <span className="text-sm text-gray-600">ユニット当たり売上</span>
                 <span className="font-medium">{formatCurrency(getKpi("revenuePerUnit"))}</span>
               </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-sm text-gray-600">総スタッフFTE</span>
+                <span className="font-medium">{formatNumber(getKpi("totalStaffFte"))}人</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-sm text-gray-600">総労働時間（残業込み）</span>
+                <span className="font-medium">{formatNumber(getKpi("laborHoursTotal"))}時間</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-sm text-gray-600">人時生産性</span>
+                <span className="font-medium">{formatCurrency(getKpi("revenuePerLaborHour"))}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-sm text-gray-600">残業比率</span>
+                <span className={`font-medium ${getKpiStatus("overtimeRatio", getKpi("overtimeRatio")) === "danger" ? "text-red-600" : ""}`}>
+                  {getKpi("overtimeRatio").toFixed(1)}%
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -141,6 +159,7 @@ export default function HumanAnalysisPage() {
                 <Legend />
                 <Line yAxisId="left" type="monotone" dataKey="revenuePerDentist" name="Dr1人当たり売上" stroke="#3B82F6" strokeWidth={2} />
                 <Line yAxisId="left" type="monotone" dataKey="revenuePerHygienist" name="DH1人当たり売上" stroke="#10B981" strokeWidth={2} />
+                <Line yAxisId="left" type="monotone" dataKey="revenuePerLaborHour" name="人時生産性" stroke="#8B5CF6" strokeWidth={2} />
                 <Line yAxisId="right" type="monotone" dataKey="laborCostRatio" name="人件費率" stroke="#EF4444" strokeWidth={2} strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>

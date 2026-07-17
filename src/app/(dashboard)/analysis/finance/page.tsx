@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { formatCurrency, formatPercent } from "@/lib/utils";
+import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
 import { getKpiStatus } from "@/lib/kpi-calculator";
 import { PeriodSelector } from "@/components/ui/period-selector";
 import { Period, DEFAULT_PERIOD } from "@/lib/period";
@@ -104,6 +104,28 @@ export default function FinanceAnalysisPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle>保険請求の精度</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <KpiCard label="保険点数" value={`${formatNumber(getKpi("insurancePoints"))}点`} status="neutral" />
+            <KpiCard
+              label="1点あたり単価"
+              value={`${getKpi("revenuePerPoint").toFixed(2)}円`}
+              status={statusMap(getKpiStatus("revenuePerPoint", getKpi("revenuePerPoint")))}
+            />
+            <KpiCard
+              label="返戻・査定減率"
+              value={formatPercent(getKpi("pointDeductionRate"))}
+              status={statusMap(getKpiStatus("pointDeductionRate", getKpi("pointDeductionRate")))}
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-4 leading-relaxed">
+            診療報酬は1点=10円です。返戻・査定減があると実収入が10円を下回るため、1点あたり単価がレセプト請求の精度を表します。
+          </p>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

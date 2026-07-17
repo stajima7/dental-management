@@ -25,6 +25,7 @@ export interface MonthlyData {
     departmentType: string;
     appointmentCount: number;
     cancelCount: number;
+    noShowCount?: number;
     completedCount: number;
   }[];
   costs: {
@@ -44,8 +45,15 @@ export interface ProfileData {
   parttimeDentistCount: number;
   fulltimeHygienistCount: number;
   parttimeHygienistCount: number;
+  fulltimeAssistantCount?: number;
+  parttimeAssistantCount?: number;
+  fulltimeReceptionCount?: number;
+  parttimeReceptionCount?: number;
+  fulltimeTechnicianCount?: number;
+  parttimeTechnicianCount?: number;
   clinicDaysPerMonth: number;
   avgHoursPerDay?: number;
+  avgOvertimeHours?: number;
   avgTreatmentMinutes?: number;
 }
 
@@ -77,6 +85,9 @@ export const KPI_DEFINITIONS: Record<string, {
   maintenanceRevenue:      { name: "メンテ売上",         unit: "円",  category: "売上",   format: "currency", higherIsBetter: true },
   homeVisitRevenue:        { name: "訪問売上",           unit: "円",  category: "売上",   format: "currency", higherIsBetter: true },
   selfPayRatio:            { name: "自費率",             unit: "%",   category: "売上",   format: "percent",  higherIsBetter: true,  benchmark: 20 },
+  insurancePoints:         { name: "保険点数",           unit: "点",  category: "売上",   format: "number",   higherIsBetter: true },
+  revenuePerPoint:         { name: "1点あたり単価",      unit: "円",  category: "売上",   format: "decimal",  higherIsBetter: true,  benchmark: 10 },
+  pointDeductionRate:      { name: "返戻・査定減率",     unit: "%",   category: "売上",   format: "percent",  higherIsBetter: false, benchmark: 2 },
   totalPatientCount:       { name: "延患者数",           unit: "人",  category: "患者",   format: "number",   higherIsBetter: true },
   uniquePatientCount:      { name: "実患者数",           unit: "人",  category: "患者",   format: "number",   higherIsBetter: true },
   newPatientCount:         { name: "新患数",             unit: "人",  category: "患者",   format: "number",   higherIsBetter: true,  benchmark: 20 },
@@ -87,6 +98,9 @@ export const KPI_DEFINITIONS: Record<string, {
   discontinuedRate:        { name: "中断率",             unit: "%",   category: "患者",   format: "percent",  higherIsBetter: false, benchmark: 5 },
   maintenanceTransitionRate: { name: "メンテ移行率",     unit: "%",   category: "患者",   format: "percent",  higherIsBetter: true,  benchmark: 30 },
   cancelRate:              { name: "キャンセル率",       unit: "%",   category: "患者",   format: "percent",  higherIsBetter: false, benchmark: 10 },
+  noShowCount:             { name: "無断キャンセル数",   unit: "件",  category: "患者",   format: "number",   higherIsBetter: false },
+  noShowRate:              { name: "無断キャンセル率",   unit: "%",   category: "患者",   format: "percent",  higherIsBetter: false, benchmark: 2 },
+  noShowLoss:              { name: "無断キャンセル損失額", unit: "円", category: "患者",  format: "currency", higherIsBetter: false },
   costPerAcquisition:      { name: "新患獲得単価",       unit: "円",  category: "患者",   format: "currency", higherIsBetter: false, benchmark: 10000 },
   revenuePerNewPatient:    { name: "新患1人あたり生涯売上", unit: "円", category: "患者", format: "currency", higherIsBetter: true },
   ltvToCpaRatio:           { name: "LTV/獲得単価比",     unit: "倍",  category: "患者",   format: "decimal",  higherIsBetter: true,  benchmark: 3 },
@@ -100,6 +114,10 @@ export const KPI_DEFINITIONS: Record<string, {
   idleChairLoss:           { name: "空き枠損失額",       unit: "円",  category: "生産性", format: "currency", higherIsBetter: false },
   dentistFte:              { name: "歯科医師FTE",       unit: "人",  category: "人員",   format: "decimal",  higherIsBetter: true },
   hygienistFte:            { name: "衛生士FTE",         unit: "人",  category: "人員",   format: "decimal",  higherIsBetter: true },
+  totalStaffFte:           { name: "総スタッフFTE",     unit: "人",  category: "人員",   format: "decimal",  higherIsBetter: true },
+  laborHoursTotal:         { name: "総労働時間",         unit: "時間", category: "人員",  format: "number",   higherIsBetter: false },
+  revenuePerLaborHour:     { name: "人時生産性",         unit: "円",  category: "人員",   format: "currency", higherIsBetter: true },
+  overtimeRatio:           { name: "残業比率",           unit: "%",   category: "人員",   format: "percent",  higherIsBetter: false, benchmark: 10 },
   revenuePerDentist:       { name: "Dr1人あたり売上",    unit: "円",  category: "生産性", format: "currency", higherIsBetter: true },
   revenuePerHygienist:     { name: "DH1人あたり売上",    unit: "円",  category: "生産性", format: "currency", higherIsBetter: true },
   patientsPerDay:          { name: "1日平均来院数",      unit: "人",  category: "生産性", format: "decimal",  higherIsBetter: true },
@@ -161,6 +179,22 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
   // 自費率
   const selfPayRatio = effectiveTotalRevenue > 0 ? (selfPayRevenue / effectiveTotalRevenue) * 100 : 0;
   push("selfPayRatio", selfPayRatio);
+
+  // --- 保険点数 ---
+  // 診療報酬は1点=10円。レセプトの返戻・査定減があると実収入が10円を下回るため、
+  // 「1点あたり実際にいくら入金されたか」で請求の精度が測れる。
+  const insurancePoints = data.revenue.reduce((sum, r) => sum + (r.points || 0), 0);
+  push("insurancePoints", insurancePoints);
+
+  // 点数が計上されている部門の売上のみを対象にする（自費には点数が無いため）
+  const pointBasedRevenue = data.revenue
+    .filter((r) => (r.points || 0) > 0)
+    .reduce((sum, r) => sum + r.amount, 0);
+  const revenuePerPoint = insurancePoints > 0 ? pointBasedRevenue / insurancePoints : 0;
+  push("revenuePerPoint", revenuePerPoint);
+
+  const pointDeductionRate = revenuePerPoint > 0 ? (1 - revenuePerPoint / 10) * 100 : 0;
+  push("pointDeductionRate", pointDeductionRate);
 
   // --- 患者関連 ---
   const totalPatients = data.patients.filter((p) => p.departmentType === "TOTAL");
@@ -231,11 +265,34 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
   const idleMinutes = Math.max(0, targetMinutes - chairMinutesUsed);
   push("idleChairLoss", idleMinutes * revenuePerChairMinute);
 
+  // --- 無断キャンセル ---
+  // 事前連絡のあるキャンセルと違い、枠を埋め直せないため損失が確定する
+  const noShowCount = totalAppts.reduce((s, a) => s + (a.noShowCount || 0), 0);
+  push("noShowCount", noShowCount);
+  push("noShowRate", appointmentCount > 0 ? (noShowCount / appointmentCount) * 100 : 0);
+  push("noShowLoss", noShowCount * avgTreatmentMinutes * revenuePerChairMinute);
+
   // FTE計算（PT=0.5）
   const dentistFte = profile.fulltimeDentistCount + profile.parttimeDentistCount * 0.5;
   const hygienistFte = profile.fulltimeHygienistCount + profile.parttimeHygienistCount * 0.5;
   push("dentistFte", dentistFte);
   push("hygienistFte", hygienistFte);
+
+  // --- 人時生産性 ---
+  // 残業を含む実労働時間あたりの売上。残業でこなしている場合は生産性が下がる。
+  const totalStaffFte =
+    dentistFte +
+    hygienistFte +
+    (profile.fulltimeAssistantCount ?? 0) + (profile.parttimeAssistantCount ?? 0) * 0.5 +
+    (profile.fulltimeReceptionCount ?? 0) + (profile.parttimeReceptionCount ?? 0) * 0.5 +
+    (profile.fulltimeTechnicianCount ?? 0) + (profile.parttimeTechnicianCount ?? 0) * 0.5;
+  push("totalStaffFte", totalStaffFte);
+
+  const avgOvertimeHours = profile.avgOvertimeHours ?? 0;
+  const laborHoursTotal = totalStaffFte * profile.clinicDaysPerMonth * (avgHoursPerDay + avgOvertimeHours);
+  push("laborHoursTotal", laborHoursTotal);
+  push("revenuePerLaborHour", laborHoursTotal > 0 ? effectiveTotalRevenue / laborHoursTotal : 0);
+  push("overtimeRatio", avgHoursPerDay > 0 ? (avgOvertimeHours / avgHoursPerDay) * 100 : 0);
 
   const revenuePerDentist = dentistFte > 0 ? effectiveTotalRevenue / dentistFte : 0;
   push("revenuePerDentist", revenuePerDentist);

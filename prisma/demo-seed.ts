@@ -97,6 +97,8 @@ interface MonthFigures {
   yearMonth: string;
   revenue: Record<Dept, number>;
   totalRevenue: number;
+  /** 保険1点あたりの実収入。10円を下回る分が返戻・査定減 */
+  revenuePerPoint: number;
   totalPatientCount: number;
   uniquePatientCount: number;
   newPatientCount: number;
@@ -131,6 +133,9 @@ function buildMonth(i: number): MonthFigures {
   };
   // TOTAL は各部門の合計と必ず一致させる
   const totalRevenue = DEPTS.reduce((s, d) => s + revenue[d], 0);
+
+  // 返戻・査定減 3.8% → 1.2%（レセプト点検体制の強化を表現）
+  const revenuePerPoint = lerp(i, 9.62, 9.88);
 
   // 患者単価も3年で改善する
   const totalPatientCount = Math.round(totalRevenue / lerp(i, 12800, 14200));
@@ -193,7 +198,7 @@ function buildMonth(i: number): MonthFigures {
   ];
 
   return {
-    yearMonth, revenue, totalRevenue, totalPatientCount, uniquePatientCount,
+    yearMonth, revenue, totalRevenue, revenuePerPoint, totalPatientCount, uniquePatientCount,
     newPatientCount, returnPatientCount, dropoutCount, maintenanceTransitionCount,
     appointmentCount, cancelCount, noShowCount, directCosts, directAssignedCosts, indirectCosts,
   };
@@ -368,7 +373,11 @@ async function main() {
         revenueType: dept === "MAINTENANCE" ? "PREVENTION" : "TREATMENT",
         insuranceOrPrivate: dept === "SELF_PAY" ? "PRIVATE" : dept === "MAINTENANCE" ? "MIXED" : "INSURANCE",
         amount: m.revenue[dept],
-        points: dept === "INSURANCE" || dept === "HOME_VISIT" ? Math.round(m.revenue[dept] / 10) : 0,
+        // 1点=10円だが返戻・査定減で実収入は下回る。請求精度の改善を3年で表現するため、
+        // 点数は「売上 ÷ 実際の1点単価」で逆算する（単価が10円に近いほど査定減が少ない）
+        points: dept === "INSURANCE" || dept === "HOME_VISIT"
+          ? Math.round(m.revenue[dept] / m.revenuePerPoint)
+          : 0,
         patientCount: Math.round(m.totalPatientCount * PATIENT_SHARE[dept]),
       });
     }

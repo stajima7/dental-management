@@ -87,6 +87,8 @@ export default function PatientAnalysisPage() {
                 ["予約件数", getKpi("appointmentCount"), "件"],
                 ["キャンセル数", getKpi("cancelCount"), "件"],
                 ["キャンセル率", getKpi("cancelRate"), "%"],
+                ["うち無断キャンセル数", getKpi("noShowCount"), "件"],
+                ["無断キャンセル率", getKpi("noShowRate"), "%"],
                 ["メンテ移行率", getKpi("maintenanceTransitionRate"), "%"],
               ].map(([label, value, unit]) => (
                 <div key={label as string} className="flex justify-between py-2 border-b">
@@ -117,6 +119,11 @@ export default function PatientAnalysisPage() {
               status={statusMap(getKpiStatus("ltvToCpaRatio", getKpi("ltvToCpaRatio")))}
             />
             <KpiCard label="平均継続月数" value={`${getKpi("avgRetentionMonths").toFixed(1)}ヶ月`} status="neutral" />
+            <KpiCard
+              label="無断キャンセル損失額"
+              value={formatCurrency(getKpi("noShowLoss"))}
+              status={statusMap(getKpiStatus("noShowRate", getKpi("noShowRate")))}
+            />
           </div>
           <p className="text-xs text-gray-500 mt-4 leading-relaxed">
             新患獲得単価は「広告費 ÷ 新患数」です。紹介・通りがかりの新患も分母に含むため、広告経由のみの獲得単価より低く出ます。<br />

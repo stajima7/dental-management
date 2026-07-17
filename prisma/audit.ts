@@ -27,6 +27,9 @@ const KPI_CODES_USED_BY_UI = [
   "selfPayRatio", "discontinuedRate", "materialCostRatio",
   "chairUtilization", "chairMinutesUsed", "chairMinutesAvailable", "revenuePerChairMinute", "idleChairLoss",
   "costPerAcquisition", "revenuePerNewPatient", "ltvToCpaRatio", "avgRetentionMonths",
+  "insurancePoints", "revenuePerPoint", "pointDeductionRate",
+  "noShowCount", "noShowRate", "noShowLoss",
+  "totalStaffFte", "laborHoursTotal", "revenuePerLaborHour", "overtimeRatio",
 ];
 
 async function main() {
@@ -152,6 +155,11 @@ async function main() {
     ["新患1人生涯売上", yen(v("revenuePerNewPatient")), "推計値（月商÷新患数）"],
     ["LTV/獲得単価比", v("ltvToCpaRatio").toFixed(1) + "倍", "BM3倍以上"],
     ["平均継続月数", v("avgRetentionMonths").toFixed(1) + "ヶ月", "中断率の逆数"],
+    ["1点あたり単価", v("revenuePerPoint").toFixed(2) + "円", "BM10円（1点=10円）"],
+    ["返戻・査定減率", v("pointDeductionRate").toFixed(1) + "%", "BM2%以下"],
+    ["無断キャンセル率", v("noShowRate").toFixed(1) + "%", "BM2%以下"],
+    ["人時生産性", yen(v("revenuePerLaborHour")), "残業込みの実労働時間あたり"],
+    ["残業比率", v("overtimeRatio").toFixed(1) + "%", "BM10%以下"],
   ];
   for (const [name, value, bm] of rows) console.log(`     ${name.padEnd(16)} ${value.padStart(14)}   ${bm}`);
 
