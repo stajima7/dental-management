@@ -268,45 +268,46 @@ async function main() {
   };
   console.log(`  削除: ${Object.entries(deleted).map(([k, v]) => `${k}=${v}`).join(", ")}\n`);
 
-  // ---------- 2. 医院基本情報（未入力の項目のみ補完）----------
+  // ---------- 2. 医院基本情報（ユーザー指定値, 2026-07-17）----------
   await prisma.clinic.update({
     where: { id: clinicId },
     data: {
-      corporateName: clinic.corporateName || "医療法人社団ファイブ会",
-      prefecture: clinic.prefecture || "東京都",
-      city: clinic.city || "世田谷区",
-      openingYear: clinic.openingYear || 2016,
-      corporateType: "CORPORATION",
+      corporateName: null,          // 医療法人化していない
+      prefecture: "東京都",
+      city: "葛飾区",
+      openingYear: 2018,
+      corporateType: "INDIVIDUAL",  // 個人（医療法人化していない）
       clinicType: JSON.stringify(["insurance", "self-pay", "maintenance", "home-visit"]),
-      isHomeVisit: true,
+      isHomeVisit: true,            // 訪問診療あり
       isSetupComplete: true,
     },
   });
 
-  // ---------- 3. 医院プロファイル（人員・設備）----------
+  // ---------- 3. 医院プロファイル（人員・設備, ユーザー指定値）----------
+  // 注: IOS を保存するフィールドは無い（設備は CT/マイクロ/CAD-CAM/オペ室 のみ）
   const profileData = {
     unitCount: 5,
-    activeUnitCount: 5,
+    activeUnitCount: 4,
     hasCt: true,
     hasMicroscope: true,
-    hasCadcam: true,
+    hasCadcam: false,
     hasOperationRoom: false,
-    fulltimeDentistCount: 2,
-    parttimeDentistCount: 1,
-    fulltimeHygienistCount: 3,
-    parttimeHygienistCount: 2,
+    fulltimeDentistCount: 1,
+    parttimeDentistCount: 2,
+    fulltimeHygienistCount: 2,
+    parttimeHygienistCount: 1,
     fulltimeAssistantCount: 2,
-    parttimeAssistantCount: 1,
+    parttimeAssistantCount: 5,
     fulltimeReceptionCount: 1,
-    parttimeReceptionCount: 1,
+    parttimeReceptionCount: 2,
     fulltimeTechnicianCount: 0,
     parttimeTechnicianCount: 0,
-    hasOfficeManager: true,
-    clinicDaysPerMonth: 22,
-    avgHoursPerDay: 8.5,
-    avgOvertimeHours: 1.2,
-    workHours: "9:00-18:30",
-    avgTreatmentMinutes: 45,
+    hasOfficeManager: false,
+    clinicDaysPerMonth: 24,
+    avgHoursPerDay: 9,
+    avgOvertimeHours: 1.5,          // 1〜2時間の中間
+    workHours: "9:00-18:00",
+    avgTreatmentMinutes: 30,
   };
   const existingProfile = await prisma.clinicProfile.findFirst({ where: { clinicId } });
   if (existingProfile) {
@@ -314,24 +315,24 @@ async function main() {
   } else {
     await prisma.clinicProfile.create({ data: { clinicId, ...profileData } });
   }
-  console.log("医院プロファイルを更新（Dr FTE=2.5 / DH FTE=4.0）");
+  console.log("医院プロファイルを更新（Dr FTE=2.0 / DH FTE=2.5）");
 
-  // ---------- 4. 目標値 ----------
+  // ---------- 4. 目標値（ユーザー指定 + 未指定は据え置き値）----------
   const target = await prisma.clinicTarget.create({
     data: {
       clinicId,
-      monthlyRevenue: 13_000_000,
-      selfPayRatio: 25,
-      newPatients: 55,
-      returnRate: 90,
+      monthlyRevenue: 12_000_000,   // 月間目標売上 1200万円
+      selfPayRatio: 20,             // 自費率目標 20%
+      newPatients: 50,              // 月間新患目標 50名
+      returnRate: 90,               // （未指定・据え置き）
       cancelRate: 6,
-      laborCostRatio: 25,
+      laborCostRatio: 20,           // 人件費率目標 20%
       materialCostRatio: 8,
-      maintenanceTransitionRate: 35,
+      maintenanceTransitionRate: 35, // （未指定・据え置き）
       grossProfitRate: 90,
-      operatingProfitRate: 42,
-      revenuePerUnit: 2_600_000,
-      revenuePerActiveUnit: 2_600_000,
+      operatingProfitRate: 42,      // （未指定・据え置き）
+      revenuePerUnit: 30_000_000,   // ユニット当たり売上目標 3000万円（ユーザー指定値）
+      revenuePerActiveUnit: 30_000_000,
       revenuePerDentist: 5_200_000,
       revenuePerHygienist: 520_000,
       discontinuedRate: 3,
