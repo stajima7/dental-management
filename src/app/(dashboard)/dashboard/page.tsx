@@ -361,6 +361,7 @@ export default function DashboardPage() {
                   <tbody>
                     {kpis
                       .filter((k) => KPI_LABELS[k.kpiCode])
+                      .filter((k) => kpiVisibleInMode(k.kpiCode, mode))
                       .map((kpi) => {
                         const def = KPI_DEFINITIONS[kpi.kpiCode];
                         const isPercent = def?.format === "percent";
