@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
 import { getKpiStatus, KPI_DEFINITIONS } from "@/lib/kpi-calculator";
 import { PeriodSelector } from "@/components/ui/period-selector";
+import { AnalysisModeSelector } from "@/components/ui/analysis-mode-selector";
+import { ModeGate } from "@/components/ui/mode-gate";
+import { AnalysisMode, DEFAULT_ANALYSIS_MODE, kpiVisibleInMode } from "@/lib/analysis-mode";
 import { Period, DEFAULT_PERIOD } from "@/lib/period";
 import { useTrend } from "@/lib/use-trend";
 import {
@@ -53,6 +56,7 @@ export default function DashboardPage() {
   const [kpis, setKpis] = useState<KpiData[]>([]);
   const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<AnalysisMode>(DEFAULT_ANALYSIS_MODE);
 
   const [noClinic, setNoClinic] = useState(false);
 
@@ -68,6 +72,7 @@ export default function DashboardPage() {
             if (!selectedClinicId) {
               setSelectedClinicId(data[0].id);
               if (data[0].latestYearMonth) setYearMonth(data[0].latestYearMonth);
+              if (data[0].analysisMode) setMode(data[0].analysisMode);
             }
           }
         }
@@ -146,9 +151,12 @@ export default function DashboardPage() {
       </div>
 
       {kpis.length > 0 && (
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600 whitespace-nowrap">推移グラフの期間</span>
-          <PeriodSelector value={period} onChange={setPeriod} baseMonth={yearMonth} />
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <AnalysisModeSelector clinicId={selectedClinicId} mode={mode} onChange={setMode} />
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-600 whitespace-nowrap">推移グラフの期間</span>
+            <PeriodSelector value={period} onChange={setPeriod} baseMonth={yearMonth} />
+          </div>
         </div>
       )}
 
@@ -196,6 +204,7 @@ export default function DashboardPage() {
           {/* 主要KPIカード */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {mainKpis.map((code) => {
+              if (!kpiVisibleInMode(code, mode)) return null;
               const kpi = getKpi(code);
               if (!kpi) return null;
               const def = KPI_DEFINITIONS[code];
@@ -284,8 +293,8 @@ export default function DashboardPage() {
               </Card>
             )}
 
-            {/* 患者数推移 */}
-            {trendData.length > 0 && (
+            {/* 患者数推移（診療データが要る） */}
+            {trendData.length > 0 && kpiVisibleInMode("totalPatientCount", mode) && (
               <Card>
                 <CardHeader>
                   <CardTitle>患者数推移</CardTitle>
@@ -306,8 +315,8 @@ export default function DashboardPage() {
               </Card>
             )}
 
-            {/* 収益性指標推移 */}
-            {trendData.length > 0 && (
+            {/* 収益性指標推移（財務データが要る） */}
+            {trendData.length > 0 && kpiVisibleInMode("operatingProfitRate", mode) && (
               <Card>
                 <CardHeader>
                   <CardTitle>収益性指標推移</CardTitle>

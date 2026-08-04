@@ -96,6 +96,7 @@ export async function PUT(
       clinicType,
       isHomeVisit,
       isSetupComplete,
+      analysisMode,
     } = body;
 
     const updateData: Record<string, unknown> = {};
@@ -108,6 +109,7 @@ export async function PUT(
     if (clinicType !== undefined) updateData.clinicType = clinicType;
     if (isHomeVisit !== undefined) updateData.isHomeVisit = isHomeVisit;
     if (isSetupComplete !== undefined) updateData.isSetupComplete = isSetupComplete;
+    if (analysisMode !== undefined) updateData.analysisMode = analysisMode;
 
     const clinic = await prisma.clinic.update({
       where: { id },

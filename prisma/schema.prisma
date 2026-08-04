@@ -83,6 +83,8 @@ model Clinic {
   clinicType      String         @default("[]")
   isHomeVisit     Boolean        @default(false)
   isSetupComplete Boolean        @default(false)
+  // 入力できるデータに応じた分析モード（財務／患者・診療／統合）
+  analysisMode    AnalysisMode   @default(INTEGRATED)
 
   users                   ClinicUser[]
   profiles                ClinicProfile[]
@@ -124,6 +126,12 @@ model ClinicUser {
 enum CorporateType {
   INDIVIDUAL
   CORPORATION
+}
+
+enum AnalysisMode {
+  FINANCIAL   // 財務諸表(BS/PL/CS)のみ
+  CLINICAL    // 患者数・診療点数（カルテ/レセプト）のみ
+  INTEGRATED  // 財務＋診療の統合
 }
 
 // ============ 医院プロファイル ============

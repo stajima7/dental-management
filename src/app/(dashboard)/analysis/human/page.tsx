@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { getKpiStatus } from "@/lib/kpi-calculator";
 import { PeriodSelector } from "@/components/ui/period-selector";
+import { AnalysisModeSelector } from "@/components/ui/analysis-mode-selector";
+import { AnalysisMode, DEFAULT_ANALYSIS_MODE, kpiVisibleInMode } from "@/lib/analysis-mode";
 import { Period, DEFAULT_PERIOD } from "@/lib/period";
 import { useTrend } from "@/lib/use-trend";
 import {
@@ -29,6 +31,7 @@ export default function HumanAnalysisPage() {
   const [profile, setProfile] = useState<Record<string, number>>({});
   const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
   const { rows: trendData } = useTrend(selectedClinicId, period, yearMonth);
+  const [mode, setMode] = useState<AnalysisMode>(DEFAULT_ANALYSIS_MODE);
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
@@ -36,6 +39,7 @@ export default function HumanAnalysisPage() {
         setClinics(d);
         setSelectedClinicId(d[0].id);
         if (d[0].latestYearMonth) setYearMonth(d[0].latestYearMonth);
+        if (d[0].analysisMode) setMode(d[0].analysisMode);
       }
     });
   }, []);
@@ -67,9 +71,10 @@ export default function HumanAnalysisPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">人員分析</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <AnalysisModeSelector clinicId={selectedClinicId} mode={mode} onChange={setMode} />
           <input type="month" className="border border-gray-300 rounded-md px-3 py-1.5 text-sm" value={yearMonth} onChange={e => setYearMonth(e.target.value)} />
         </div>
       </div>
@@ -101,18 +106,18 @@ export default function HumanAnalysisPage() {
           <CardHeader><CardTitle>生産性指標</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between py-2 border-b">
+              {kpiVisibleInMode("laborCostRatio", mode) && <div className="flex justify-between py-2 border-b">
                 <span className="text-sm text-gray-600">人件費率</span>
                 <span className="font-medium">{getKpi("laborCostRatio").toFixed(1)}%</span>
-              </div>
-              <div className="flex justify-between py-2 border-b">
+              </div>}
+              {kpiVisibleInMode("patientsPerDay", mode) && <div className="flex justify-between py-2 border-b">
                 <span className="text-sm text-gray-600">1日平均来院数</span>
                 <span className="font-medium">{getKpi("patientsPerDay").toFixed(1)}人</span>
-              </div>
-              <div className="flex justify-between py-2 border-b">
+              </div>}
+              {kpiVisibleInMode("revenuePerPatient", mode) && <div className="flex justify-between py-2 border-b">
                 <span className="text-sm text-gray-600">患者単価</span>
                 <span className="font-medium">{formatCurrency(getKpi("revenuePerPatient"))}</span>
-              </div>
+              </div>}
               <div className="flex justify-between py-2 border-b">
                 <span className="text-sm text-gray-600">ユニット当たり売上</span>
                 <span className="font-medium">{formatCurrency(getKpi("revenuePerUnit"))}</span>
@@ -160,7 +165,8 @@ export default function HumanAnalysisPage() {
                   <Legend />
                   <Line yAxisId="left" type="monotone" dataKey="revenuePerDentist" name="Dr1人当たり売上" stroke="#3B82F6" strokeWidth={2} />
                   <Line yAxisId="left" type="monotone" dataKey="revenuePerHygienist" name="DH1人当たり売上" stroke="#10B981" strokeWidth={2} />
-                  <Line yAxisId="right" type="monotone" dataKey="laborCostRatio" name="人件費率" stroke="#EF4444" strokeWidth={2} strokeDasharray="4 2" />
+                  {/* 人件費率は財務データが要るため、財務・統合モードでのみ描画 */}
+                  {kpiVisibleInMode("laborCostRatio", mode) && <Line yAxisId="right" type="monotone" dataKey="laborCostRatio" name="人件費率" stroke="#EF4444" strokeWidth={2} strokeDasharray="4 2" />}
                 </LineChart>
               </ResponsiveContainer>
               <div>

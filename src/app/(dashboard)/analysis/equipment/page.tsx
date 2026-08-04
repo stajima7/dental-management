@@ -6,6 +6,9 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
 import { getKpiStatus, CHAIR_UTILIZATION_CEILING } from "@/lib/kpi-calculator";
 import { PeriodSelector } from "@/components/ui/period-selector";
+import { AnalysisModeSelector } from "@/components/ui/analysis-mode-selector";
+import { ModeGate } from "@/components/ui/mode-gate";
+import { AnalysisMode, DEFAULT_ANALYSIS_MODE, kpiVisibleInMode } from "@/lib/analysis-mode";
 import { Period, DEFAULT_PERIOD } from "@/lib/period";
 import { useTrend } from "@/lib/use-trend";
 import {
@@ -28,6 +31,7 @@ export default function EquipmentAnalysisPage() {
   const [profile, setProfile] = useState<Record<string, unknown>>({});
   const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
   const { rows: trendData } = useTrend(selectedClinicId, period, yearMonth);
+  const [mode, setMode] = useState<AnalysisMode>(DEFAULT_ANALYSIS_MODE);
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
@@ -35,6 +39,7 @@ export default function EquipmentAnalysisPage() {
         setClinics(d);
         setSelectedClinicId(d[0].id);
         if (d[0].latestYearMonth) setYearMonth(d[0].latestYearMonth);
+        if (d[0].analysisMode) setMode(d[0].analysisMode);
       }
     });
   }, []);
@@ -67,29 +72,32 @@ export default function EquipmentAnalysisPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">設備分析</h1>
-        <input
-          type="month"
-          className="border border-gray-300 rounded-md px-3 py-1.5 text-sm"
-          value={yearMonth}
-          onChange={e => e.target.value && setYearMonth(e.target.value)}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <AnalysisModeSelector clinicId={selectedClinicId} mode={mode} onChange={setMode} />
+          <input
+            type="month"
+            className="border border-gray-300 rounded-md px-3 py-1.5 text-sm"
+            value={yearMonth}
+            onChange={e => e.target.value && setYearMonth(e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard
+        {kpiVisibleInMode("chairUtilization", mode) && <KpiCard
           label="チェア稼働率"
           value={formatPercent(chairUtilization)}
           status={statusMap(getKpiStatus("chairUtilization", chairUtilization))}
-        />
-        <KpiCard label="チェア分単価" value={formatCurrency(getKpi("revenuePerChairMinute"))} status="neutral" />
-        <KpiCard
+        />}
+        {kpiVisibleInMode("revenuePerChairMinute", mode) && <KpiCard label="チェア分単価" value={formatCurrency(getKpi("revenuePerChairMinute"))} status="neutral" />}
+        {kpiVisibleInMode("idleChairLoss", mode) && <KpiCard
           label="空き枠損失額"
           value={formatCurrency(getKpi("idleChairLoss"))}
           status={getKpi("idleChairLoss") > 0 ? "warning" : "positive"}
-        />
-        <KpiCard label="ユニット当たり売上" value={formatCurrency(getKpi("revenuePerUnit"))} status={statusMap(getKpiStatus("revenuePerUnit", getKpi("revenuePerUnit")))} />
+        />}
+        {kpiVisibleInMode("revenuePerUnit", mode) && <KpiCard label="ユニット当たり売上" value={formatCurrency(getKpi("revenuePerUnit"))} status={statusMap(getKpiStatus("revenuePerUnit", getKpi("revenuePerUnit")))} />}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -109,6 +117,7 @@ export default function EquipmentAnalysisPage() {
           </CardContent>
         </Card>
 
+        <ModeGate requires={["clinical"]} mode={mode} showPlaceholder title="チェア稼働の内訳">
         <Card>
           <CardHeader><CardTitle>チェア稼働の内訳</CardTitle></CardHeader>
           <CardContent>
@@ -148,8 +157,10 @@ export default function EquipmentAnalysisPage() {
             </p>
           </CardContent>
         </Card>
+        </ModeGate>
       </div>
 
+      <ModeGate requires={["clinical"]} mode={mode} showPlaceholder title="ユニット生産性の推移">
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -192,6 +203,7 @@ export default function EquipmentAnalysisPage() {
           ) : <p className="text-gray-500 text-center py-8">データがありません</p>}
         </CardContent>
       </Card>
+      </ModeGate>
     </div>
   );
 }

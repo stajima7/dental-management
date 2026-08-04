@@ -280,6 +280,7 @@ async function main() {
       clinicType: JSON.stringify(["insurance", "self-pay", "maintenance", "home-visit"]),
       isHomeVisit: true,            // 訪問診療あり
       isSetupComplete: true,
+      analysisMode: "INTEGRATED",   // デモは財務＋診療の全データを持つ
     },
   });
 

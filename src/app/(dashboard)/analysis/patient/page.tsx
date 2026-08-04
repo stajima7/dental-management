@@ -6,6 +6,9 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { formatNumber, formatPercent, formatCurrency } from "@/lib/utils";
 import { getKpiStatus } from "@/lib/kpi-calculator";
 import { PeriodSelector } from "@/components/ui/period-selector";
+import { AnalysisModeSelector } from "@/components/ui/analysis-mode-selector";
+import { ModeGate } from "@/components/ui/mode-gate";
+import { AnalysisMode, DEFAULT_ANALYSIS_MODE } from "@/lib/analysis-mode";
 import { Period, DEFAULT_PERIOD } from "@/lib/period";
 import { useTrend } from "@/lib/use-trend";
 import {
@@ -25,12 +28,14 @@ export default function PatientAnalysisPage() {
   const [kpis, setKpis] = useState<KpiData[]>([]);
   const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
   const { rows: trendData } = useTrend(selectedClinicId, period, yearMonth);
+  const [mode, setMode] = useState<AnalysisMode>(DEFAULT_ANALYSIS_MODE);
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
       if (Array.isArray(d) && d.length > 0) {
         setSelectedClinicId(d[0].id);
         if (d[0].latestYearMonth) setYearMonth(d[0].latestYearMonth);
+        if (d[0].analysisMode) setMode(d[0].analysisMode);
       }
     });
   }, []);
@@ -46,10 +51,15 @@ export default function PatientAnalysisPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">患者分析</h1>
-        <input type="month" className="border border-gray-300 rounded-md px-3 py-1.5 text-sm" value={yearMonth} onChange={e => setYearMonth(e.target.value)} />
+        <div className="flex flex-wrap items-center gap-2">
+          <AnalysisModeSelector clinicId={selectedClinicId} mode={mode} onChange={setMode} />
+          <input type="month" className="border border-gray-300 rounded-md px-3 py-1.5 text-sm" value={yearMonth} onChange={e => setYearMonth(e.target.value)} />
+        </div>
       </div>
+
+      <ModeGate requires={["clinical"]} mode={mode} showPlaceholder title="患者分析">
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard label="延患者数" value={formatNumber(getKpi("totalPatientCount"))} sub="人/月" status="neutral" />
@@ -103,6 +113,8 @@ export default function PatientAnalysisPage() {
         </Card>
       </div>
 
+      {/* CPA・LTVは広告費(財務)も要るため統合モードのみ */}
+      <ModeGate requires={["finance", "clinical"]} mode={mode} showPlaceholder title="新患獲得効率">
       <Card>
         <CardHeader><CardTitle>新患獲得効率</CardTitle></CardHeader>
         <CardContent>
@@ -131,6 +143,7 @@ export default function PatientAnalysisPage() {
           </p>
         </CardContent>
       </Card>
+      </ModeGate>
 
       <Card>
         <CardHeader>
@@ -169,6 +182,7 @@ export default function PatientAnalysisPage() {
                   <Line yAxisId="right" type="monotone" dataKey="returnRate" name="再来率（右軸）" stroke="#3B82F6" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
+              <ModeGate requires={["finance", "clinical"]} mode={mode}>
               <div>
                 {/* 生涯売上(約26万円)と獲得単価(約5千円)は桁が2桁違うため、左右で軸を分ける */}
                 <p className="text-sm font-medium text-gray-700 mb-2">新患獲得効率の推移</p>
@@ -185,10 +199,12 @@ export default function PatientAnalysisPage() {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+              </ModeGate>
             </div>
           ) : <p className="text-gray-500 text-center py-8">データがありません</p>}
         </CardContent>
       </Card>
+      </ModeGate>
     </div>
   );
 }

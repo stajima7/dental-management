@@ -10,6 +10,9 @@ import { ExportButton } from "@/components/ui/export-button";
 import { Period, DEFAULT_PERIOD, resolvePeriod } from "@/lib/period";
 import { useTrend } from "@/lib/use-trend";
 import type { SeasonalityResult } from "@/lib/seasonality";
+import { AnalysisModeSelector } from "@/components/ui/analysis-mode-selector";
+import { ModeGate } from "@/components/ui/mode-gate";
+import { AnalysisMode, DEFAULT_ANALYSIS_MODE, kpiVisibleInMode } from "@/lib/analysis-mode";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, ReferenceLine,
@@ -29,12 +32,14 @@ export default function FinanceAnalysisPage() {
   const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
   const { rows: trendData } = useTrend(selectedClinicId, period, yearMonth);
   const [seasonality, setSeasonality] = useState<SeasonalityResult | null>(null);
+  const [mode, setMode] = useState<AnalysisMode>(DEFAULT_ANALYSIS_MODE);
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
       if (Array.isArray(d) && d.length > 0) {
         setSelectedClinicId(d[0].id);
         if (d[0].latestYearMonth) setYearMonth(d[0].latestYearMonth);
+        if (d[0].analysisMode) setMode(d[0].analysisMode);
       }
     });
   }, []);
@@ -68,17 +73,19 @@ export default function FinanceAnalysisPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">財務分析</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <AnalysisModeSelector clinicId={selectedClinicId} mode={mode} onChange={setMode} />
           <ExportButton clinicId={selectedClinicId} type="kpi" yearMonth={yearMonth} label="当月KPIをCSV出力" />
           <input type="month" className="border border-gray-300 rounded-md px-3 py-1.5 text-sm" value={yearMonth} onChange={e => setYearMonth(e.target.value)} />
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard label="総売上" value={formatCurrency(getKpi("totalRevenue"))} status="neutral" />
-        <KpiCard label="粗利益率" value={formatPercent(getKpi("grossProfitRate"))} status={statusMap(getKpiStatus("grossProfitRate", getKpi("grossProfitRate")))} />
-        <KpiCard label="営業利益率" value={formatPercent(getKpi("operatingProfitRate"))} status={statusMap(getKpiStatus("operatingProfitRate", getKpi("operatingProfitRate")))} />
-        <KpiCard label="人件費率" value={formatPercent(getKpi("laborCostRatio"))} status={statusMap(getKpiStatus("laborCostRatio", getKpi("laborCostRatio")))} />
+        {kpiVisibleInMode("totalRevenue", mode) && <KpiCard label="総売上" value={formatCurrency(getKpi("totalRevenue"))} status="neutral" />}
+        {kpiVisibleInMode("grossProfitRate", mode) && <KpiCard label="粗利益率" value={formatPercent(getKpi("grossProfitRate"))} status={statusMap(getKpiStatus("grossProfitRate", getKpi("grossProfitRate")))} />}
+        {kpiVisibleInMode("operatingProfitRate", mode) && <KpiCard label="営業利益率" value={formatPercent(getKpi("operatingProfitRate"))} status={statusMap(getKpiStatus("operatingProfitRate", getKpi("operatingProfitRate")))} />}
+        {kpiVisibleInMode("laborCostRatio", mode) && <KpiCard label="人件費率" value={formatPercent(getKpi("laborCostRatio"))} status={statusMap(getKpiStatus("laborCostRatio", getKpi("laborCostRatio")))} />}
+        {kpiVisibleInMode("selfPayRatio", mode) && <KpiCard label="自費率" value={formatPercent(getKpi("selfPayRatio"))} status={statusMap(getKpiStatus("selfPayRatio", getKpi("selfPayRatio")))} />}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -99,6 +106,7 @@ export default function FinanceAnalysisPage() {
           </CardContent>
         </Card>
 
+        <ModeGate requires={["finance"]} mode={mode} showPlaceholder title="損益サマリー">
         <Card>
           <CardHeader><CardTitle>損益サマリー</CardTitle></CardHeader>
           <CardContent>
@@ -118,6 +126,7 @@ export default function FinanceAnalysisPage() {
             </div>
           </CardContent>
         </Card>
+        </ModeGate>
       </div>
 
       {seasonality && (
@@ -164,6 +173,7 @@ export default function FinanceAnalysisPage() {
         </Card>
       )}
 
+      <ModeGate requires={["finance"]} mode={mode} showPlaceholder title="損益分岐点">
       <Card>
         <CardHeader><CardTitle>損益分岐点</CardTitle></CardHeader>
         <CardContent>
@@ -194,7 +204,9 @@ export default function FinanceAnalysisPage() {
           </p>
         </CardContent>
       </Card>
+      </ModeGate>
 
+      <ModeGate requires={["clinical"]} mode={mode} showPlaceholder title="保険請求の精度">
       <Card>
         <CardHeader><CardTitle>保険請求の精度</CardTitle></CardHeader>
         <CardContent>
@@ -216,6 +228,7 @@ export default function FinanceAnalysisPage() {
           </p>
         </CardContent>
       </Card>
+      </ModeGate>
 
       <Card>
         <CardHeader>
@@ -251,6 +264,7 @@ export default function FinanceAnalysisPage() {
               </ResponsiveContainer>
               {/* 粗利益率は約91%と他の指標(20〜30%)から離れており、同一軸だと
                   営業利益率・自費率・人件費率が25%付近で重なって読めなくなるため軸を分ける */}
+              <ModeGate requires={["finance"]} mode={mode} showPlaceholder title="利益率の推移">
               <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={trendData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -265,6 +279,7 @@ export default function FinanceAnalysisPage() {
                   <Line yAxisId="right" type="monotone" dataKey="grossProfitRate" name="粗利益率（右軸）" stroke={COLORS[0]} strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
+              </ModeGate>
             </div>
           ) : <p className="text-gray-500 text-center py-8">データがありません</p>}
         </CardContent>
