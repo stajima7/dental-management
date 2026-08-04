@@ -137,6 +137,7 @@ model ClinicProfile {
   activeUnitCount        Int      @default(0)
   hasCt                  Boolean  @default(false)
   hasMicroscope          Boolean  @default(false)
+  hasIos                 Boolean  @default(false)
   hasCadcam              Boolean  @default(false)
   hasOperationRoom       Boolean  @default(false)
   // 人員構成

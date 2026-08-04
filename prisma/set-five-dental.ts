@@ -36,6 +36,7 @@ async function main() {
     activeUnitCount: 4,
     hasCt: true,
     hasMicroscope: true,
+    hasIos: false,
     hasCadcam: false,
     hasOperationRoom: false,
     fulltimeDentistCount: 1,
@@ -70,7 +71,9 @@ async function main() {
     selfPayRatio: 20,             // 自費率目標 20%
     newPatients: 50,              // 月間新患目標 50名
     laborCostRatio: 20,           // 人件費率目標 20%
-    revenuePerUnit: 30_000_000,   // ユニット当たり売上目標 3000万円（ユーザー指定値）
+    // ユニット当たり売上目標: 年間3000万円 → 月次250万円で保存（revenuePerUnitは月次KPIのため）
+    revenuePerUnit: 2_500_000,
+    revenuePerActiveUnit: 2_500_000,
   };
   if (target) {
     await prisma.clinicTarget.update({ where: { id: target.id }, data: targetData });

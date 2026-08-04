@@ -30,6 +30,7 @@ export default function SetupPage() {
   const [unitCount, setUnitCount] = useState<number | "">(0);
   const [activeUnitCount, setActiveUnitCount] = useState<number | "">(0);
   const [hasCt, setHasCt] = useState(false);
+  const [hasIos, setHasIos] = useState(false);
   const [hasMicroscope, setHasMicroscope] = useState(false);
   const [hasCadcam, setHasCadcam] = useState(false);
   const [hasOperationRoom, setHasOperationRoom] = useState(false);
@@ -110,6 +111,7 @@ export default function SetupPage() {
           hasOfficeManager,
           hasCt,
           hasMicroscope,
+          hasIos,
           hasCadcam,
           hasOperationRoom,
           clinicDaysPerMonth: clinicDaysPerMonth || 22,
@@ -239,6 +241,7 @@ export default function SetupPage() {
                     [hasOperationRoom, setHasOperationRoom, "オペ室"],
                     [hasCt, setHasCt, "CT"],
                     [hasMicroscope, setHasMicroscope, "マイクロスコープ"],
+                    [hasIos, setHasIos, "IOS（口腔内スキャナー）"],
                     [hasCadcam, setHasCadcam, "セレック/CAD/CAM"],
                   ].map(([checked, setter, label]) => (
                     <label key={label as string} className="flex items-center gap-2 cursor-pointer py-1">
@@ -314,7 +317,7 @@ export default function SetupPage() {
                 <h4 className="text-sm font-semibold text-blue-600 mb-2">設備</h4>
                 <div className="text-sm space-y-1">
                   <div><strong>ユニット:</strong> {unitCount}台（稼働 {activeUnitCount || unitCount}台）</div>
-                  <div><strong>設備:</strong> {[hasCt && "CT", hasMicroscope && "マイクロ", hasCadcam && "CAD/CAM", hasOperationRoom && "オペ室"].filter(Boolean).join("、") || "なし"}</div>
+                  <div><strong>設備:</strong> {[hasCt && "CT", hasMicroscope && "マイクロ", hasIos && "IOS", hasCadcam && "CAD/CAM", hasOperationRoom && "オペ室"].filter(Boolean).join("、") || "なし"}</div>
                 </div>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">

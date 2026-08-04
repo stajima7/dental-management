@@ -290,6 +290,7 @@ async function main() {
     activeUnitCount: 4,
     hasCt: true,
     hasMicroscope: true,
+    hasIos: false,
     hasCadcam: false,
     hasOperationRoom: false,
     fulltimeDentistCount: 1,
@@ -331,8 +332,10 @@ async function main() {
       maintenanceTransitionRate: 35, // （未指定・据え置き）
       grossProfitRate: 90,
       operatingProfitRate: 42,      // （未指定・据え置き）
-      revenuePerUnit: 30_000_000,   // ユニット当たり売上目標 3000万円（ユーザー指定値）
-      revenuePerActiveUnit: 30_000_000,
+      // ユニット当たり売上目標: 年間3000万円 ÷ 12 = 月次250万円で保存する。
+      // アプリのrevenuePerUnitは月次KPIのため、年間値のままだと達成率が12倍ズレる。
+      revenuePerUnit: 2_500_000,
+      revenuePerActiveUnit: 2_500_000,
       revenuePerDentist: 5_200_000,
       revenuePerHygienist: 520_000,
       discontinuedRate: 3,

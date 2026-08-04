@@ -49,6 +49,7 @@ export async function POST(
         parttimeTechnicianCount: body.parttimeTechnicianCount || 0,
         hasOfficeManager: body.hasOfficeManager || false,
         hasCt: body.hasCt || false,
+        hasIos: body.hasIos || false,
         hasMicroscope: body.hasMicroscope || false,
         hasCadcam: body.hasCadcam || false,
         hasOperationRoom: body.hasOperationRoom || false,

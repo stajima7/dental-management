@@ -33,6 +33,7 @@ export const clinicProfileSchema = z.object({
   unitCount: z.number().int().min(0).max(100).default(0),
   activeUnitCount: z.number().int().min(0).max(100).default(0),
   hasCt: z.boolean().default(false),
+  hasIos: z.boolean().default(false),
   hasMicroscope: z.boolean().default(false),
   hasCadcam: z.boolean().default(false),
   hasOperationRoom: z.boolean().default(false),

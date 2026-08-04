@@ -60,6 +60,7 @@ export default function EquipmentAnalysisPage() {
   const equipment = [
     { name: "CT", has: profile.hasCt },
     { name: "マイクロスコープ", has: profile.hasMicroscope },
+    { name: "IOS（口腔内スキャナー）", has: profile.hasIos },
     { name: "CAD/CAM", has: profile.hasCadcam },
     { name: "オペ室", has: profile.hasOperationRoom },
   ];

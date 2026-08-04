@@ -27,6 +27,7 @@ interface ProfileData {
   activeUnitCount: number;
   hasCt: boolean;
   hasMicroscope: boolean;
+  hasIos: boolean;
   hasCadcam: boolean;
   hasOperationRoom: boolean;
   fulltimeDentistCount: number;
@@ -95,6 +96,7 @@ export default function SettingsPage() {
             unitCount: data.profile.unitCount || 0,
             activeUnitCount: data.profile.activeUnitCount || 0,
             hasCt: data.profile.hasCt || false,
+            hasIos: data.profile.hasIos || false,
             hasMicroscope: data.profile.hasMicroscope || false,
             hasCadcam: data.profile.hasCadcam || false,
             hasOperationRoom: data.profile.hasOperationRoom || false,
@@ -284,6 +286,7 @@ export default function SettingsPage() {
               {[
                 { key: "hasCt" as const, label: "CT" },
                 { key: "hasMicroscope" as const, label: "マイクロスコープ" },
+                { key: "hasIos" as const, label: "IOS（口腔内スキャナー）" },
                 { key: "hasCadcam" as const, label: "CAD/CAM" },
                 { key: "hasOperationRoom" as const, label: "オペ室" },
               ].map(({ key, label }) => (
