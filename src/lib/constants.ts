@@ -112,6 +112,16 @@ export const CSV_MAPPING_LABELS: Record<string, string> = {
   cancelCount: 'キャンセル数',
   noShowCount: '無断キャンセル数',
   insurancePoints: '保険点数',
+  // リコール（呼び戻し）の歩留まり
+  recallNotified: 'リコール通知者数',
+  recallBooked: 'リコール予約者数',
+  recallVisited: 'リコール来院者数',
+  recallRebooked: 'リコール再予約者数',
+  // 中断患者（次回予約が入っていない人）
+  discNoNextAppointment: '中断_次回予約なし',
+  discAfterCancel: '中断_キャンセル後',
+  discAfterNoShow: '中断_無断キャンセル後',
+  discMaintenanceOverdue: '中断_メンテ期限超過',
   laborCost: '人件費',
   materialCost: '材料費',
   labFee: '技工費',

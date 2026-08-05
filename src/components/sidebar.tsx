@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/analysis/equipment", label: "モノ分析", icon: "🏥" },
   { href: "/analysis/finance", label: "カネ分析", icon: "💰" },
   { href: "/costs", label: "コスト登録", icon: "📝" },
+  { href: "/patient-data", label: "患者データ登録", icon: "🗒️" },
   { href: "/allocation", label: "配賦設定", icon: "⚖️" },
   { href: "/department", label: "部門別採算", icon: "📋" },
   { href: "/analysis/patient", label: "患者分析", icon: "🧑‍⚕️" },

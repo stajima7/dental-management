@@ -94,6 +94,30 @@ function CsvImportTab({ clinicId }: { clinicId: string }) {
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * 取込できる全項目を列名にしたテンプレートを作る。
+   * 列名は CSV_MAPPING_LABELS と同じ日本語にしておくと、取込時に自動で対応付けされる。
+   */
+  const downloadTemplate = useCallback(() => {
+    const labels = Object.values(CSV_MAPPING_LABELS);
+    // 直近3ヶ月分の年月をあらかじめ入れておき、書き始めやすくする
+    const rows: string[] = [labels.join(",")];
+    const now = new Date();
+    for (let i = 3; i >= 1; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      rows.push([ym, ...labels.slice(1).map(() => "")].join(","));
+    }
+    // Excelで開いたときに文字化けしないようBOMを付ける
+    const blob = new Blob(["﻿" + rows.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "取込テンプレート.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -187,6 +211,14 @@ function CsvImportTab({ clinicId }: { clinicId: string }) {
               </div>
             </div>
             <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-gray-500">
+                どの列名で用意すればよいか分からないときは、テンプレートをご利用ください。
+              </p>
+              <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                テンプレートCSVをダウンロード
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -520,6 +552,12 @@ function ManualInputTab({ clinicId }: { clinicId: string }) {
                 <Input type="number" value={appointments.noShowCount || ""} onChange={(e) => setAppointments((p) => ({ ...p, noShowCount: Number(e.target.value) || 0 }))} />
               </div>
             </div>
+            <p className="text-xs text-gray-500 mt-4">
+              キャンセルの<span className="font-medium">理由別内訳</span>や、
+              <span className="font-medium">リコール</span>・<span className="font-medium">中断患者</span>の登録は
+              <a href="/patient-data" className="text-blue-600 hover:underline mx-1">患者データ登録</a>
+              から行えます。
+            </p>
           </CardContent>
         </Card>
       )}

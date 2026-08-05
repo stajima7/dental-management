@@ -263,6 +263,40 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        // リコール（呼び戻し）の保存
+        // 通知者数が無い月は未実施とみなし、行を作らない（0が並ぶと成績が悪いと誤読されるため）
+        if (row.recallNotified) {
+          const notified = parseInt(row.recallNotified) || 0;
+          // 各段階は前段を超えられないので取込時に丸める
+          const booked = Math.min(parseInt(row.recallBooked) || 0, notified);
+          const visited = Math.min(parseInt(row.recallVisited) || 0, booked);
+          const rebooked = Math.min(parseInt(row.recallRebooked) || 0, visited);
+          const recallData = {
+            notifiedCount: notified, bookedCount: booked,
+            visitedCount: visited, rebookedCount: rebooked,
+          };
+          await prisma.monthlyRecall.upsert({
+            where: { clinicId_yearMonth: { clinicId, yearMonth } },
+            update: recallData,
+            create: { clinicId, yearMonth, ...recallData },
+          });
+        }
+
+        // 中断患者（次回予約が入っていない人）の保存
+        if (row.discNoNextAppointment || row.discAfterCancel || row.discAfterNoShow || row.discMaintenanceOverdue) {
+          const discData = {
+            noNextAppointment: parseInt(row.discNoNextAppointment) || 0,
+            afterCancel: parseInt(row.discAfterCancel) || 0,
+            afterNoShow: parseInt(row.discAfterNoShow) || 0,
+            maintenanceOverdue: parseInt(row.discMaintenanceOverdue) || 0,
+          };
+          await prisma.monthlyDiscontinued.upsert({
+            where: { clinicId_yearMonth: { clinicId, yearMonth } },
+            update: discData,
+            create: { clinicId, yearMonth, ...discData },
+          });
+        }
+
         // コストデータの保存
         const costMapping: Record<string, { code: string; layer: "DIRECT" | "INDIRECT" }> = {
           directorCompensation: { code: "DIRECTOR_COMPENSATION", layer: "INDIRECT" },
