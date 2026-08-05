@@ -79,13 +79,19 @@ export async function GET(req: NextRequest) {
       };
 
       for (const yearMonth of missing) {
-        const [revenue, patients, appointments, costs] = await Promise.all([
+        const [revenue, patients, appointments, costs, recall, cancelDetails, discontinued] = await Promise.all([
           prisma.monthlyRevenue.findMany({ where: { clinicId, yearMonth } }),
           prisma.monthlyPatients.findMany({ where: { clinicId, yearMonth } }),
           prisma.monthlyAppointments.findMany({ where: { clinicId, yearMonth } }),
           prisma.monthlyCosts.findMany({ where: { clinicId, yearMonth } }),
+          prisma.monthlyRecall.findUnique({ where: { clinicId_yearMonth: { clinicId, yearMonth } } }),
+          prisma.monthlyCancelDetail.findMany({ where: { clinicId, yearMonth } }),
+          prisma.monthlyDiscontinued.findUnique({ where: { clinicId_yearMonth: { clinicId, yearMonth } } }),
         ]);
-        const kpis = calculateKpis({ revenue, patients, appointments, costs } as never, profileData as never);
+        const kpis = calculateKpis(
+          { revenue, patients, appointments, costs, recall, cancelDetails, discontinued } as never,
+          profileData as never
+        );
 
         const values: Record<string, number> = {};
         for (const kpi of kpis) {

@@ -108,6 +108,12 @@ interface MonthFigures {
   appointmentCount: number;
   cancelCount: number;
   noShowCount: number;
+  /** リコール（呼び戻し）の歩留まり */
+  recall: { notifiedCount: number; bookedCount: number; visitedCount: number; rebookedCount: number };
+  /** キャンセルの理由別内訳（誰の都合か・取り直せたか） */
+  cancelDetails: { category: string; reasonCode: string; count: number; recoveredCount: number }[];
+  /** 中断患者の状態別実数 */
+  discontinued: { noNextAppointment: number; afterCancel: number; afterNoShow: number; maintenanceOverdue: number };
   directCosts: { costItemCode: string; departmentType: Dept; amount: number }[];
   directAssignedCosts: { costItemCode: string; departmentType: Dept; amount: number }[];
   indirectCosts: { costItemCode: string; amount: number }[];
@@ -149,6 +155,57 @@ function buildMonth(i: number): MonthFigures {
   const appointmentCount = Math.round(totalPatientCount * 1.09);
   const cancelCount = Math.round(appointmentCount * lerp(i, 0.095, 0.068));
   const noShowCount = Math.round(appointmentCount * 0.014);
+
+  // --- リコール（呼び戻し）---
+  // 通知の数自体はほぼ横ばいだが、通知後の予約率と継続率が3年で改善していく。
+  // メンテ移行率の伸びと整合するように、メンテ患者数に連動させる。
+  const notifiedCount = Math.round(uniquePatientCount * lerp(i, 0.42, 0.55));
+  const bookedCount = Math.round(notifiedCount * lerp(i, 0.71, 0.89));
+  const visitedCount = Math.round(bookedCount * lerp(i, 0.88, 0.95));
+  const rebookedCount = Math.round(visitedCount * lerp(i, 0.63, 0.79));
+
+  // --- キャンセルの理由別内訳 ---
+  // 患者都合が約4分の3。医院都合（技工物の遅延など）は改善余地が大きく3年で減らす。
+  const clinicShare = lerp(i, 0.30, 0.19);
+  const clinicCancels = Math.round(cancelCount * clinicShare);
+  const patientCancels = cancelCount - clinicCancels;
+  // リカバリー（取り直し）率も体制強化で改善する
+  const recoverRate = lerp(i, 0.34, 0.58);
+  const split = (n: number, ...ratios: number[]) => {
+    const out = ratios.map((r) => Math.round(n * r));
+    out[0] += n - out.reduce((s, v) => s + v, 0); // 端数は先頭に寄せて合計を保つ
+    return out;
+  };
+  const pShare = split(patientCancels, 0.26, 0.20, 0.18, 0.13, 0.09, 0.08, 0.06);
+  const cShare = split(clinicCancels, 0.42, 0.28, 0.18, 0.12);
+  const withRecovery = (code: string, category: string, count: number, rate: number) =>
+    ({ category, reasonCode: code, count, recoveredCount: Math.round(count * rate) });
+  const cancelDetails: MonthFigures["cancelDetails"] = [
+    // 体調不良は取り直しやすいが、無断・理由不明は戻りにくい
+    withRecovery("PATIENT_ILLNESS", "PATIENT", pShare[0], recoverRate * 1.05),
+    withRecovery("FAMILY_ILLNESS", "PATIENT", pShare[1], recoverRate * 0.95),
+    withRecovery("URGENT_MATTER", "PATIENT", pShare[2], recoverRate * 1.15),
+    withRecovery("FORGOT", "PATIENT", pShare[3], recoverRate * 0.70),
+    withRecovery("NOT_IN_TIME", "PATIENT", pShare[4], recoverRate * 0.85),
+    withRecovery("PATIENT_UNKNOWN", "PATIENT", pShare[5], recoverRate * 0.40),
+    withRecovery("PATIENT_OTHER", "PATIENT", pShare[6], recoverRate * 0.60),
+    // 医院都合はこちらから連絡するため取り直し率が高い
+    withRecovery("LAB_DELAY", "CLINIC", cShare[0], 0.92),
+    withRecovery("STAFF_ABSENCE", "CLINIC", cShare[1], 0.88),
+    withRecovery("CLINIC_CLOSED", "CLINIC", cShare[2], 0.90),
+    withRecovery("SCHEDULE_ADJUST", "CLINIC", cShare[3], 0.95),
+  ].filter((d) => d.count > 0);
+
+  // --- 中断患者（次回予約が無い人）---
+  // 中断率の改善（dropoutCount）と歩調を合わせて減らしていく
+  const discontinuedTotal = Math.round(dropoutCount * 1.35);
+  const dSplit = split(discontinuedTotal, 0.46, 0.24, 0.16, 0.14);
+  const discontinued: MonthFigures["discontinued"] = {
+    noNextAppointment: dSplit[0],
+    afterCancel: dSplit[1],
+    afterNoShow: dSplit[2],
+    maintenanceOverdue: dSplit[3],
+  };
 
   // --- 直接原価（部門別に計上）---
   // 材料費率 10.5% → 8.0%（仕入先見直し・技工料交渉の成果）
@@ -200,7 +257,10 @@ function buildMonth(i: number): MonthFigures {
   return {
     yearMonth, revenue, totalRevenue, revenuePerPoint, totalPatientCount, uniquePatientCount,
     newPatientCount, returnPatientCount, dropoutCount, maintenanceTransitionCount,
-    appointmentCount, cancelCount, noShowCount, directCosts, directAssignedCosts, indirectCosts,
+    appointmentCount, cancelCount, noShowCount,
+    recall: { notifiedCount, bookedCount, visitedCount, rebookedCount },
+    cancelDetails, discontinued,
+    directCosts, directAssignedCosts, indirectCosts,
   };
 }
 
@@ -258,6 +318,9 @@ async function main() {
     patients: (await prisma.monthlyPatients.deleteMany({ where: { clinicId } })).count,
     appointments: (await prisma.monthlyAppointments.deleteMany({ where: { clinicId } })).count,
     costs: (await prisma.monthlyCosts.deleteMany({ where: { clinicId } })).count,
+    recalls: (await prisma.monthlyRecall.deleteMany({ where: { clinicId } })).count,
+    cancelDetails: (await prisma.monthlyCancelDetail.deleteMany({ where: { clinicId } })).count,
+    discontinued: (await prisma.monthlyDiscontinued.deleteMany({ where: { clinicId } })).count,
     allocResults: (await prisma.allocationResult.deleteMany({ where: { clinicId } })).count,
     driverValues: (await prisma.allocationDriverValue.deleteMany({ where: { clinicId } })).count,
     allocRules: (await prisma.allocationRule.deleteMany({ where: { clinicId } })).count,
@@ -370,6 +433,9 @@ async function main() {
   const appointmentRows: Row[] = [];
   const costRows: Row[] = [];
   const driverRows: Row[] = [];
+  const recallRows: Row[] = [];
+  const cancelDetailRows: Row[] = [];
+  const discontinuedRows: Row[] = [];
 
   for (const m of figures) {
     for (const dept of DEPTS) {
@@ -403,6 +469,12 @@ async function main() {
       appointmentCount: m.appointmentCount, cancelCount: m.cancelCount,
       noShowCount: m.noShowCount, completedCount: m.appointmentCount - m.cancelCount,
     });
+
+    recallRows.push({ clinicId, yearMonth: m.yearMonth, ...m.recall });
+    for (const c of m.cancelDetails) {
+      cancelDetailRows.push({ clinicId, yearMonth: m.yearMonth, ...c });
+    }
+    discontinuedRows.push({ clinicId, yearMonth: m.yearMonth, ...m.discontinued });
 
     for (const c of m.directCosts) {
       costRows.push({ clinicId, yearMonth: m.yearMonth, costItemCode: c.costItemCode, departmentType: c.departmentType, costLayer: "DIRECT", amount: c.amount });
@@ -459,6 +531,9 @@ async function main() {
         patients: patientRows.filter((r) => r.yearMonth === yearMonth),
         appointments: appointmentRows.filter((r) => r.yearMonth === yearMonth),
         costs: costRows.filter((r) => r.yearMonth === yearMonth),
+        recall: recallRows.find((r) => r.yearMonth === yearMonth) ?? null,
+        cancelDetails: cancelDetailRows.filter((r) => r.yearMonth === yearMonth),
+        discontinued: discontinuedRows.find((r) => r.yearMonth === yearMonth) ?? null,
       } as never,
       profileData as never
     );
@@ -518,6 +593,9 @@ async function main() {
     ["患者", prisma.monthlyPatients as never, patientRows],
     ["予約", prisma.monthlyAppointments as never, appointmentRows],
     ["コスト", prisma.monthlyCosts as never, costRows],
+    ["リコール", prisma.monthlyRecall as never, recallRows],
+    ["キャンセル内訳", prisma.monthlyCancelDetail as never, cancelDetailRows],
+    ["中断患者", prisma.monthlyDiscontinued as never, discontinuedRows],
     ["ドライバー量", prisma.allocationDriverValue as never, driverRows],
     ["配賦結果", prisma.allocationResult as never, allocationRows],
     ["KPI", prisma.monthlyKpis as never, kpiRows],

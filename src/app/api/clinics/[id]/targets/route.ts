@@ -45,6 +45,8 @@ export async function POST(
         maintenanceTransitionRate: body.maintenanceTransitionRate ?? null,
         operatingProfitRate: body.operatingProfitRate ?? null,
         revenuePerUnit: body.revenuePerUnit ?? null,
+        pointsPerPatientMin: body.pointsPerPatientMin ?? null,
+        pointsPerPatientMax: body.pointsPerPatientMax ?? null,
       },
       create: {
         clinicId: id,
@@ -57,6 +59,8 @@ export async function POST(
         maintenanceTransitionRate: body.maintenanceTransitionRate ?? null,
         operatingProfitRate: body.operatingProfitRate ?? null,
         revenuePerUnit: body.revenuePerUnit ?? null,
+        pointsPerPatientMin: body.pointsPerPatientMin ?? null,
+        pointsPerPatientMax: body.pointsPerPatientMax ?? null,
       },
     });
 

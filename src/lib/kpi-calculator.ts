@@ -11,6 +11,8 @@ export interface MonthlyData {
     insuranceOrPrivate: string;
     amount: number;
     points: number;
+    /** その部門の延べ来院数。平均保険点数の分母の推計に使う */
+    patientCount?: number;
   }[];
   patients: {
     departmentType: string;
@@ -36,6 +38,27 @@ export interface MonthlyData {
     isDirectCost?: boolean;
     amount: number;
   }[];
+  /** リコール（呼び戻し）の歩留まり。未入力の医院もあるため任意 */
+  recall?: {
+    notifiedCount: number;
+    bookedCount: number;
+    visitedCount: number;
+    rebookedCount: number;
+  } | null;
+  /** キャンセルの理由別内訳。未入力の医院もあるため任意 */
+  cancelDetails?: {
+    category: string; // PATIENT | CLINIC
+    reasonCode: string;
+    count: number;
+    recoveredCount: number;
+  }[];
+  /** 中断患者の実数内訳。未入力の医院もあるため任意 */
+  discontinued?: {
+    noNextAppointment: number;
+    afterCancel: number;
+    afterNoShow: number;
+    maintenanceOverdue: number;
+  } | null;
 }
 
 export interface ProfileData {
@@ -78,6 +101,10 @@ export const KPI_DEFINITIONS: Record<string, {
   format: "currency" | "percent" | "number" | "decimal";
   higherIsBetter: boolean;
   benchmark?: number;
+  // 「高いほど良い／低いほど良い」ではなく一定の幅に収まっているかを見る指標用。
+  // 平均保険点数のように、高すぎても低すぎても問題になるものに使う。
+  rangeMin?: number;
+  rangeMax?: number;
 }> = {
   totalRevenue:            { name: "月商",               unit: "円",  category: "売上",   format: "currency", higherIsBetter: true },
   insuranceRevenue:        { name: "保険売上",           unit: "円",  category: "売上",   format: "currency", higherIsBetter: true },
@@ -90,6 +117,10 @@ export const KPI_DEFINITIONS: Record<string, {
   // 返戻・査定減率のベンチマーク2%と揃えて9.8円（=査定減2%以内）を良好とする。
   revenuePerPoint:         { name: "1点あたり単価",      unit: "円",  category: "売上",   format: "decimal",  higherIsBetter: true,  benchmark: 9.8 },
   pointDeductionRate:      { name: "返戻・査定減率",     unit: "%",   category: "売上",   format: "percent",  higherIsBetter: false, benchmark: 2 },
+  // 高すぎると個別指導のリスク、低すぎると算定漏れ。幅で管理する指標。
+  // 既定は全国平均（レセプト1件あたり概ね1,300〜1,450点）を挟む幅。
+  // 医院ごとの適正範囲は目標設定（pointsPerPatientMin/Max）で上書きできる。
+  pointsPerPatient:        { name: "1人あたり平均保険点数", unit: "点", category: "売上", format: "number",   higherIsBetter: true,  rangeMin: 1200, rangeMax: 1600 },
   totalPatientCount:       { name: "延患者数",           unit: "人",  category: "患者",   format: "number",   higherIsBetter: true },
   uniquePatientCount:      { name: "実患者数",           unit: "人",  category: "患者",   format: "number",   higherIsBetter: true },
   newPatientCount:         { name: "新患数",             unit: "人",  category: "患者",   format: "number",   higherIsBetter: true,  benchmark: 20 },
@@ -107,6 +138,18 @@ export const KPI_DEFINITIONS: Record<string, {
   revenuePerNewPatient:    { name: "新患1人あたり生涯売上", unit: "円", category: "患者", format: "currency", higherIsBetter: true },
   ltvToCpaRatio:           { name: "LTV/獲得単価比",     unit: "倍",  category: "患者",   format: "decimal",  higherIsBetter: true,  benchmark: 3 },
   avgRetentionMonths:      { name: "平均継続月数",       unit: "ヶ月", category: "患者",  format: "decimal",  higherIsBetter: true },
+  // --- リコール（呼び戻し）の歩留まり ---
+  recallNotifiedCount:     { name: "リコール通知者数",   unit: "人",  category: "リコール", format: "number",  higherIsBetter: true },
+  recallBookedCount:       { name: "リコール予約者数",   unit: "人",  category: "リコール", format: "number",  higherIsBetter: true },
+  recallVisitedCount:      { name: "リコール来院者数",   unit: "人",  category: "リコール", format: "number",  higherIsBetter: true },
+  recallBookingRate:       { name: "リコール予約率",     unit: "%",   category: "リコール", format: "percent", higherIsBetter: true,  benchmark: 80 },
+  recallVisitRate:         { name: "リコール来院率",     unit: "%",   category: "リコール", format: "percent", higherIsBetter: true,  benchmark: 90 },
+  recallContinuationRate:  { name: "リコール継続率",     unit: "%",   category: "リコール", format: "percent", higherIsBetter: true,  benchmark: 75 },
+  // --- キャンセルの内訳と回復 ---
+  cancelRecoveryRate:      { name: "キャンセル回復率",   unit: "%",   category: "患者",   format: "percent",  higherIsBetter: true,  benchmark: 50 },
+  clinicSideCancelRate:    { name: "医院都合キャンセル比率", unit: "%", category: "患者", format: "percent",  higherIsBetter: false, benchmark: 25 },
+  // --- 中断患者の実数 ---
+  discontinuedPatientCount:{ name: "中断患者数（実数）", unit: "人",  category: "患者",   format: "number",   higherIsBetter: false },
   revenuePerUnit:          { name: "ユニット1台あたり売上",     unit: "円", category: "生産性", format: "currency", higherIsBetter: true, benchmark: 1500000 },
   revenuePerActiveUnit:    { name: "稼働ユニット1台あたり売上", unit: "円", category: "生産性", format: "currency", higherIsBetter: true },
   chairUtilization:        { name: "チェア稼働率",       unit: "%",   category: "生産性", format: "percent",  higherIsBetter: true,  benchmark: 75 },
@@ -217,6 +260,18 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
   push("newPatientCount", newPatientCount);
   push("returnPatientCount", returnPatientCount);
 
+  // --- 1人あたり平均保険点数（レセプト1件あたり点数に相当）---
+  // 高すぎると個別指導の対象になりやすく、低すぎると算定漏れを疑う。
+  // 分母は「保険の実患者数（＝レセプト件数）」。
+  // 保険部門の実患者数が入力されていればそれを使い、無ければ実患者数で代用する。
+  // 歯科では月内に来院した患者のほとんどが保険のレセプトを持つため、
+  // 延患者数の構成比から推計するより実態に近い。
+  const insuranceUniquePatients =
+    data.patients
+      .filter((p) => p.departmentType === "INSURANCE")
+      .reduce((s, p) => s + p.uniquePatientCount, 0) || uniquePatientCount;
+  push("pointsPerPatient", insuranceUniquePatients > 0 ? insurancePoints / insuranceUniquePatients : 0);
+
   // 再来率
   const returnRate = uniquePatientCount > 0 ? (returnPatientCount / uniquePatientCount) * 100 : 0;
   push("returnRate", returnRate);
@@ -229,6 +284,31 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
   const maintenanceTransitionRate = uniquePatientCount > 0 ? (maintenanceTransitionCount / uniquePatientCount) * 100 : 0;
   push("maintenanceTransitionRate", maintenanceTransitionRate);
 
+  // --- リコール（呼び戻し）の歩留まり ---
+  // 通知 → 予約 → 来院 → 次回予約 のどこで患者が抜けているかを段階ごとに見る。
+  // 未入力の医院では算出しない（0を並べると「悪い」と誤読されるため）。
+  if (data.recall) {
+    const { notifiedCount, bookedCount, visitedCount, rebookedCount } = data.recall;
+    push("recallNotifiedCount", notifiedCount);
+    push("recallBookedCount", bookedCount);
+    push("recallVisitedCount", visitedCount);
+    // 通知したうち何人が予約に至ったか
+    push("recallBookingRate", notifiedCount > 0 ? (bookedCount / notifiedCount) * 100 : 0);
+    // 予約したうち何人が実際に来たか
+    push("recallVisitRate", bookedCount > 0 ? (visitedCount / bookedCount) * 100 : 0);
+    // 来院したうち何人が次回予約まで進んだか（＝定期通院が続く割合）
+    push("recallContinuationRate", visitedCount > 0 ? (rebookedCount / visitedCount) * 100 : 0);
+  }
+
+  // --- 中断患者の実数 ---
+  // 「中断率」は推計値のため連絡先が分からない。状態別の実人数を持つことで
+  // 誰に声をかけるべきかまで落とし込める。
+  if (data.discontinued) {
+    const d = data.discontinued;
+    push("discontinuedPatientCount",
+      d.noNextAppointment + d.afterCancel + d.afterNoShow + d.maintenanceOverdue);
+  }
+
   // --- 予約関連 ---
   const totalAppts = data.appointments.filter((a) => a.departmentType === "TOTAL");
   const appointmentCount = totalAppts.reduce((s, a) => s + a.appointmentCount, 0);
@@ -240,6 +320,21 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
   // キャンセル率
   const cancelRate = appointmentCount > 0 ? (cancelCount / appointmentCount) * 100 : 0;
   push("cancelRate", cancelRate);
+
+  // --- キャンセルの内訳と回復 ---
+  // 件数だけでは打ち手が決まらない。「誰の都合か」と「取り直せたか」を見る。
+  if (data.cancelDetails && data.cancelDetails.length > 0) {
+    const detailTotal = data.cancelDetails.reduce((s, c) => s + c.count, 0);
+    const recoveredTotal = data.cancelDetails.reduce((s, c) => s + c.recoveredCount, 0);
+    const clinicSide = data.cancelDetails
+      .filter((c) => c.category === "CLINIC")
+      .reduce((s, c) => s + c.count, 0);
+
+    // 取り直せた割合。高いほど失った枠を埋め戻せている。
+    push("cancelRecoveryRate", detailTotal > 0 ? (recoveredTotal / detailTotal) * 100 : 0);
+    // 医院側の都合による割合。自院で減らせるキャンセルの比率。
+    push("clinicSideCancelRate", detailTotal > 0 ? (clinicSide / detailTotal) * 100 : 0);
+  }
 
   // --- 生産性指標 ---
   const revenuePerUnit = profile.unitCount > 0 ? effectiveTotalRevenue / profile.unitCount : 0;
@@ -430,6 +525,16 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
  */
 export function getKpiStatus(kpiCode: string, value: number): "good" | "warning" | "danger" | "neutral" {
   const def = KPI_DEFINITIONS[kpiCode];
+
+  // 適正範囲で見る指標（平均保険点数など）は、範囲内なら良好。
+  // 範囲を10%はみ出すまでは注意、それ以上離れたら危険とする。
+  if (def?.rangeMin != null && def?.rangeMax != null) {
+    if (value <= 0) return "neutral";
+    if (value >= def.rangeMin && value <= def.rangeMax) return "good";
+    if (value >= def.rangeMin * 0.9 && value <= def.rangeMax * 1.1) return "warning";
+    return "danger";
+  }
+
   if (!def?.benchmark) return "neutral";
 
   const bm = def.benchmark;

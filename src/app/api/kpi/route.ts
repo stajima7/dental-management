@@ -42,16 +42,20 @@ export async function GET(req: NextRequest) {
     }
 
     // なければ月次データから計算
-    const [revenue, patients, appointments, costs, profile] = await Promise.all([
-      prisma.monthlyRevenue.findMany({ where: { clinicId, yearMonth } }),
-      prisma.monthlyPatients.findMany({ where: { clinicId, yearMonth } }),
-      prisma.monthlyAppointments.findMany({ where: { clinicId, yearMonth } }),
-      prisma.monthlyCosts.findMany({ where: { clinicId, yearMonth } }),
-      prisma.clinicProfile.findFirst({
-        where: { clinicId },
-        orderBy: { createdAt: "desc" },
-      }),
-    ]);
+    const [revenue, patients, appointments, costs, profile, recall, cancelDetails, discontinued] =
+      await Promise.all([
+        prisma.monthlyRevenue.findMany({ where: { clinicId, yearMonth } }),
+        prisma.monthlyPatients.findMany({ where: { clinicId, yearMonth } }),
+        prisma.monthlyAppointments.findMany({ where: { clinicId, yearMonth } }),
+        prisma.monthlyCosts.findMany({ where: { clinicId, yearMonth } }),
+        prisma.clinicProfile.findFirst({
+          where: { clinicId },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.monthlyRecall.findUnique({ where: { clinicId_yearMonth: { clinicId, yearMonth } } }),
+        prisma.monthlyCancelDetail.findMany({ where: { clinicId, yearMonth } }),
+        prisma.monthlyDiscontinued.findUnique({ where: { clinicId_yearMonth: { clinicId, yearMonth } } }),
+      ]);
 
     if (revenue.length === 0 && patients.length === 0) {
       return NextResponse.json([]);
@@ -70,7 +74,7 @@ export async function GET(req: NextRequest) {
     };
 
     const kpis = calculateKpis(
-      { revenue, patients, appointments, costs },
+      { revenue, patients, appointments, costs, recall, cancelDetails, discontinued },
       profileData
     );
 

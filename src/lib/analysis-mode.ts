@@ -40,11 +40,16 @@ export const FINANCE_KPIS = new Set<string>([
 /** 患者数・診療点数（カルテ/レセプト）が無いと算出できないKPI */
 export const CLINICAL_KPIS = new Set<string>([
   // 保険点数
-  "insurancePoints", "revenuePerPoint", "pointDeductionRate",
+  "insurancePoints", "revenuePerPoint", "pointDeductionRate", "pointsPerPatient",
   // 患者
   "totalPatientCount", "uniquePatientCount", "newPatientCount", "returnPatientCount",
   "appointmentCount", "cancelCount", "returnRate", "discontinuedRate",
   "maintenanceTransitionRate", "cancelRate", "noShowCount", "noShowRate", "noShowLoss",
+  // リコール（呼び戻し）の歩留まり
+  "recallNotifiedCount", "recallBookedCount", "recallVisitedCount",
+  "recallBookingRate", "recallVisitRate", "recallContinuationRate",
+  // キャンセル内訳・中断患者の実数
+  "cancelRecoveryRate", "clinicSideCancelRate", "discontinuedPatientCount",
   // 新患獲得単価は広告費(財務)と新患数(診療)の両方が要る。LTV比も同様に両方
   "costPerAcquisition", "revenuePerNewPatient", "ltvToCpaRatio", "avgRetentionMonths",
   // 生産性のうち患者数を使うもの

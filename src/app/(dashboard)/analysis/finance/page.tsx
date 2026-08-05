@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
-import { getKpiStatus } from "@/lib/kpi-calculator";
+import { getKpiStatus, KPI_DEFINITIONS } from "@/lib/kpi-calculator";
 import { PeriodSelector } from "@/components/ui/period-selector";
 import { ExportButton } from "@/components/ui/export-button";
 import { Period, DEFAULT_PERIOD, resolvePeriod } from "@/lib/period";
@@ -22,6 +22,60 @@ interface KpiData { kpiCode: string; kpiValue: number; }
 const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 const statusMap = (s: string) => s === "good" ? "positive" as const : s === "warning" ? "warning" as const : s === "danger" ? "critical" as const : "neutral" as const;
 
+/**
+ * 平均保険点数が適正範囲のどこにいるかを帯で示す。
+ * 「高いほど良い」指標ではないため、範囲の内側にいるかを一目で分かるようにする。
+ */
+function PointsRangeBar({ value, min, max }: { value: number; min: number; max: number }) {
+  if (!value || value <= 0 || max <= min) return null;
+  // 範囲の前後に余白を取って軸を作る（範囲外に出ても位置が分かるように）
+  const pad = (max - min) * 0.6;
+  const axisMin = Math.max(0, min - pad);
+  const axisMax = max + pad;
+  const pos = (v: number) => ((v - axisMin) / (axisMax - axisMin)) * 100;
+  const clamped = Math.min(100, Math.max(0, pos(value)));
+  const inRange = value >= min && value <= max;
+
+  return (
+    <div className="mt-5">
+      <div className="relative h-9">
+        {/* 軸 */}
+        <div className="absolute inset-x-0 top-3 h-3 bg-gray-100 rounded" />
+        {/* 適正範囲 */}
+        <div
+          className="absolute top-3 h-3 bg-emerald-200 border-x-2 border-emerald-500"
+          style={{ left: `${pos(min)}%`, width: `${pos(max) - pos(min)}%` }}
+        />
+        {/* 現在値 */}
+        <div className="absolute top-1.5 -translate-x-1/2" style={{ left: `${clamped}%` }}>
+          <div className={`w-1 h-6 rounded ${inRange ? "bg-emerald-700" : "bg-red-600"}`} />
+        </div>
+        <div
+          className={`absolute top-[-2px] -translate-x-1/2 text-xs font-bold whitespace-nowrap ${
+            inRange ? "text-emerald-700" : "text-red-600"
+          }`}
+          style={{ left: `${clamped}%` }}
+        >
+          {formatNumber(value)}点
+        </div>
+      </div>
+      <div className="relative text-[11px] text-gray-500 h-4">
+        <span className="absolute -translate-x-1/2" style={{ left: `${pos(min)}%` }}>{formatNumber(min)}</span>
+        <span className="absolute -translate-x-1/2" style={{ left: `${pos(max)}%` }}>{formatNumber(max)}</span>
+      </div>
+      <p className="text-xs mt-1">
+        {inRange ? (
+          <span className="text-emerald-700 font-medium">適正範囲に収まっています。</span>
+        ) : value > max ? (
+          <span className="text-red-600 font-medium">適正範囲より高めです。算定内容の妥当性を確認してください（個別指導のリスク）。</span>
+        ) : (
+          <span className="text-red-600 font-medium">適正範囲より低めです。算定漏れが無いか確認してください。</span>
+        )}
+      </p>
+    </div>
+  );
+}
+
 export default function FinanceAnalysisPage() {
   const [selectedClinicId, setSelectedClinicId] = useState("");
   const [yearMonth, setYearMonth] = useState(() => {
@@ -33,6 +87,8 @@ export default function FinanceAnalysisPage() {
   const { rows: trendData } = useTrend(selectedClinicId, period, yearMonth);
   const [seasonality, setSeasonality] = useState<SeasonalityResult | null>(null);
   const [mode, setMode] = useState<AnalysisMode>(DEFAULT_ANALYSIS_MODE);
+  // 平均保険点数の適正範囲。医院ごとの設定が無ければKPI定義の既定値を使う
+  const [pointRangeOverride, setPointRangeOverride] = useState<{ min: number | null; max: number | null }>({ min: null, max: null });
 
   useEffect(() => {
     fetch("/api/clinics").then(r => r.json()).then(d => {
@@ -46,8 +102,15 @@ export default function FinanceAnalysisPage() {
 
   const loadData = useCallback(async () => {
     if (!selectedClinicId || !yearMonth) return;
-    const res = await fetch(`/api/kpi?clinicId=${selectedClinicId}&yearMonth=${yearMonth}`);
-    if (res.ok) { const d = await res.json(); setKpis(Array.isArray(d) ? d : []); }
+    const [kpiRes, detailRes] = await Promise.all([
+      fetch(`/api/kpi?clinicId=${selectedClinicId}&yearMonth=${yearMonth}`),
+      fetch(`/api/patient-detail?clinicId=${selectedClinicId}&yearMonth=${yearMonth}`),
+    ]);
+    if (kpiRes.ok) { const d = await kpiRes.json(); setKpis(Array.isArray(d) ? d : []); }
+    if (detailRes.ok) {
+      const d = await detailRes.json();
+      setPointRangeOverride({ min: d.pointsPerPatientMin ?? null, max: d.pointsPerPatientMax ?? null });
+    }
   }, [selectedClinicId, yearMonth]);
 
   // 季節性は保有する全月から算出するため、表示月には依存しない
@@ -61,6 +124,21 @@ export default function FinanceAnalysisPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
   const getKpi = (code: string) => kpis.find(k => k.kpiCode === code)?.kpiValue || 0;
+
+  // 平均保険点数の適正範囲：医院ごとの設定 > KPI定義の既定値
+  const pointRange = {
+    min: pointRangeOverride.min ?? KPI_DEFINITIONS.pointsPerPatient.rangeMin ?? 1200,
+    max: pointRangeOverride.max ?? KPI_DEFINITIONS.pointsPerPatient.rangeMax ?? 1600,
+  };
+  const pointsPerPatient = getKpi("pointsPerPatient");
+  // 医院ごとの範囲が設定されている場合は、その範囲で判定し直す
+  const pointRangeStatus = pointsPerPatient <= 0
+    ? "neutral"
+    : pointsPerPatient >= pointRange.min && pointsPerPatient <= pointRange.max
+      ? "good"
+      : pointsPerPatient >= pointRange.min * 0.9 && pointsPerPatient <= pointRange.max * 1.1
+        ? "warning"
+        : "danger";
 
   const revenueData = [
     { name: "保険", value: getKpi("insuranceRevenue") },
@@ -210,7 +288,7 @@ export default function FinanceAnalysisPage() {
       <Card>
         <CardHeader><CardTitle>保険請求の精度</CardTitle></CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KpiCard label="保険点数" value={`${formatNumber(getKpi("insurancePoints"))}点`} status="neutral" />
             <KpiCard
               label="1点あたり単価"
@@ -222,9 +300,22 @@ export default function FinanceAnalysisPage() {
               value={formatPercent(getKpi("pointDeductionRate"))}
               status={statusMap(getKpiStatus("pointDeductionRate", getKpi("pointDeductionRate")))}
             />
+            <KpiCard
+              label="1人あたり平均保険点数"
+              value={`${formatNumber(getKpi("pointsPerPatient"))}点`}
+              sub={`適正 ${formatNumber(pointRange.min)}〜${formatNumber(pointRange.max)}点`}
+              status={statusMap(pointRangeStatus)}
+            />
           </div>
+
+          {/* 適正範囲のどこにいるかを帯で示す */}
+          <PointsRangeBar value={getKpi("pointsPerPatient")} min={pointRange.min} max={pointRange.max} />
+
           <p className="text-xs text-gray-500 mt-4 leading-relaxed">
-            診療報酬は1点=10円です。返戻・査定減があると実収入が10円を下回るため、1点あたり単価がレセプト請求の精度を表します。
+            診療報酬は1点=10円です。返戻・査定減があると実収入が10円を下回るため、1点あたり単価がレセプト請求の精度を表します。<br />
+            1人あたり平均保険点数は、患者1人が1か月に使った保険点数の平均（レセプト1件あたり点数に相当）です。
+            <span className="font-medium text-gray-700">高すぎると個別指導の対象になりやすく、低すぎると算定漏れが疑われます</span>。
+            適正範囲は「医院設定 → 目標値設定」で医院ごとに変更できます。
           </p>
         </CardContent>
       </Card>

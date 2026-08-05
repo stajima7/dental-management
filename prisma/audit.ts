@@ -82,13 +82,19 @@ async function main() {
   const profile = await prisma.clinicProfile.findFirst({ where: { clinicId } });
   let kpiNg = 0;
   for (const ym of months) {
-    const [revenue, patients, appointments, costs] = await Promise.all([
+    const [revenue, patients, appointments, costs, recall, cancelDetails, discontinued] = await Promise.all([
       prisma.monthlyRevenue.findMany({ where: { clinicId, yearMonth: ym } }),
       prisma.monthlyPatients.findMany({ where: { clinicId, yearMonth: ym } }),
       prisma.monthlyAppointments.findMany({ where: { clinicId, yearMonth: ym } }),
       prisma.monthlyCosts.findMany({ where: { clinicId, yearMonth: ym } }),
+      prisma.monthlyRecall.findUnique({ where: { clinicId_yearMonth: { clinicId, yearMonth: ym } } }),
+      prisma.monthlyCancelDetail.findMany({ where: { clinicId, yearMonth: ym } }),
+      prisma.monthlyDiscontinued.findUnique({ where: { clinicId_yearMonth: { clinicId, yearMonth: ym } } }),
     ]);
-    const fresh = calculateKpis({ revenue, patients, appointments, costs } as never, profile as never);
+    const fresh = calculateKpis(
+      { revenue, patients, appointments, costs, recall, cancelDetails, discontinued } as never,
+      profile as never
+    );
     const stored = await prisma.monthlyKpis.findMany({ where: { clinicId, yearMonth: ym } });
     for (const f of fresh) {
       const s = stored.find((x) => x.kpiCode === f.kpiCode);

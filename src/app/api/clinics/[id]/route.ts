@@ -97,6 +97,7 @@ export async function PUT(
       isHomeVisit,
       isSetupComplete,
       analysisMode,
+      discontinuedJudgeMonths,
     } = body;
 
     const updateData: Record<string, unknown> = {};
@@ -110,6 +111,13 @@ export async function PUT(
     if (isHomeVisit !== undefined) updateData.isHomeVisit = isHomeVisit;
     if (isSetupComplete !== undefined) updateData.isSetupComplete = isSetupComplete;
     if (analysisMode !== undefined) updateData.analysisMode = analysisMode;
+    // 中断患者の判定期間。極端な値だと指標が意味を失うため1〜24ヶ月に収める
+    if (discontinuedJudgeMonths !== undefined) {
+      const m = Number(discontinuedJudgeMonths);
+      if (Number.isFinite(m)) {
+        updateData.discontinuedJudgeMonths = Math.min(24, Math.max(1, Math.round(m)));
+      }
+    }
 
     const clinic = await prisma.clinic.update({
       where: { id },

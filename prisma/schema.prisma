@@ -85,6 +85,8 @@ model Clinic {
   isSetupComplete Boolean        @default(false)
   // 入力できるデータに応じた分析モード（財務／患者・診療／統合）
   analysisMode    AnalysisMode   @default(INTEGRATED)
+  // 中断患者の判定期間（最終来院から何ヶ月次回予約が無ければ中断とみなすか）
+  discontinuedJudgeMonths Int    @default(3)
 
   users                   ClinicUser[]
   profiles                ClinicProfile[]
@@ -93,6 +95,9 @@ model Clinic {
   monthlyAppointments     MonthlyAppointments[]
   monthlyCosts            MonthlyCosts[]
   monthlyKpis             MonthlyKpis[]
+  monthlyRecalls          MonthlyRecall[]
+  monthlyCancelDetails    MonthlyCancelDetail[]
+  monthlyDiscontinued     MonthlyDiscontinued[]
   uploadFiles             UploadFile[]
   importJobs              ImportJob[]
   importMappings          ImportMapping[]
@@ -194,6 +199,9 @@ model ClinicTarget {
   revenuePerDentist         Float?
   revenuePerHygienist       Float?
   discontinuedRate          Float?
+  // 1人あたり平均保険点数の適正範囲（高すぎると個別指導リスク、低すぎると請求漏れ）
+  pointsPerPatientMin       Float?
+  pointsPerPatientMax       Float?
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
@@ -338,6 +346,64 @@ model MonthlyAppointments {
   updatedAt        DateTime       @updatedAt
 
   @@unique([clinicId, yearMonth, departmentType])
+}
+
+// ============ 月次リコール（呼び戻し） ============
+// リコール通知 → 予約 → 来院 → 次回予約 の歩留まりを月次で追う。
+// どの段階で患者が抜けているかが分かるため、予防型経営の改善点が特定できる。
+model MonthlyRecall {
+  id            String   @id @default(cuid())
+  clinicId      String
+  clinic        Clinic   @relation(fields: [clinicId], references: [id])
+  yearMonth     String
+  notifiedCount Int      @default(0) // リコール通知を出した人数
+  bookedCount   Int      @default(0) // うち予約に至った人数
+  visitedCount  Int      @default(0) // うち実際に来院した人数
+  rebookedCount Int      @default(0) // 来院後に次回予約を入れた人数
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([clinicId, yearMonth])
+}
+
+// ============ 月次キャンセル内訳 ============
+// キャンセルを「誰の都合か」「理由は何か」で分け、取り直せた件数まで持つ。
+// 件数だけでは打ち手が決まらないため、理由別・回復状況をセットで記録する。
+model MonthlyCancelDetail {
+  id             String         @id @default(cuid())
+  clinicId       String
+  clinic         Clinic         @relation(fields: [clinicId], references: [id])
+  yearMonth      String
+  category       CancelCategory @default(PATIENT)
+  reasonCode     String         // 理由コード（CANCEL_REASONSのキー）
+  count          Int            @default(0)
+  recoveredCount Int            @default(0) // 予約を取り直せた件数
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([clinicId, yearMonth, category, reasonCode])
+}
+
+enum CancelCategory {
+  PATIENT // 患者都合
+  CLINIC  // 医院都合
+}
+
+// ============ 月次中断患者 ============
+// 「中断率」の推計だけでは連絡先が分からないため、実人数を状態別に持つ。
+model MonthlyDiscontinued {
+  id                 String   @id @default(cuid())
+  clinicId           String
+  clinic             Clinic   @relation(fields: [clinicId], references: [id])
+  yearMonth          String
+  noNextAppointment  Int      @default(0) // 次回予約が入っていない
+  afterCancel        Int      @default(0) // キャンセル後に再予約なし
+  afterNoShow        Int      @default(0) // 無断キャンセル後に再予約なし
+  maintenanceOverdue Int      @default(0) // メンテ予定日を過ぎている
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([clinicId, yearMonth])
 }
 
 // ============ 月次コスト ============

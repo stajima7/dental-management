@@ -56,6 +56,29 @@ export const CLINIC_TYPES = {
   general: '総合診療型',
 } as const
 
+/** キャンセル理由マスタ。category は誰の都合かを表す（自院で減らせるかの判断に使う） */
+export const CANCEL_REASONS = {
+  // 患者都合
+  PATIENT_ILLNESS:    { code: 'PATIENT_ILLNESS',    name: '体調不良のため',           category: 'PATIENT' },
+  FAMILY_ILLNESS:     { code: 'FAMILY_ILLNESS',     name: '家族の体調不良のため',     category: 'PATIENT' },
+  URGENT_MATTER:      { code: 'URGENT_MATTER',      name: '急用のため',               category: 'PATIENT' },
+  FORGOT:             { code: 'FORGOT',             name: '忘れていたため',           category: 'PATIENT' },
+  NOT_IN_TIME:        { code: 'NOT_IN_TIME',        name: '間に合わないため',         category: 'PATIENT' },
+  PATIENT_UNKNOWN:    { code: 'PATIENT_UNKNOWN',    name: '理由不明（連絡なし）',     category: 'PATIENT' },
+  PATIENT_OTHER:      { code: 'PATIENT_OTHER',      name: 'その他（患者都合）',       category: 'PATIENT' },
+  // 医院都合
+  LAB_DELAY:          { code: 'LAB_DELAY',          name: '補綴物の仕上がり遅延',     category: 'CLINIC' },
+  STAFF_ABSENCE:      { code: 'STAFF_ABSENCE',      name: 'スタッフの急用・休診',     category: 'CLINIC' },
+  CLINIC_CLOSED:      { code: 'CLINIC_CLOSED',      name: '診療所の休診',             category: 'CLINIC' },
+  SCHEDULE_ADJUST:    { code: 'SCHEDULE_ADJUST',    name: '予約枠の調整',             category: 'CLINIC' },
+  CLINIC_OTHER:       { code: 'CLINIC_OTHER',       name: 'その他（医院都合）',       category: 'CLINIC' },
+} as const
+
+export const CANCEL_CATEGORY_LABELS: Record<string, string> = {
+  PATIENT: '患者都合',
+  CLINIC: '医院都合',
+}
+
 export const BENCHMARKS = {
   selfPayRatio: 20,
   returnRate: 80,

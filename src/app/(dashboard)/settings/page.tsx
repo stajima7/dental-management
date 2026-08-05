@@ -20,6 +20,8 @@ interface ClinicData {
   corporateType: string;
   clinicType: string;
   isHomeVisit: boolean;
+  /** 中断患者の判定期間（最終来院から何ヶ月次回予約が無ければ中断とみなすか） */
+  discontinuedJudgeMonths?: number;
 }
 
 interface ProfileData {
@@ -59,6 +61,8 @@ export default function SettingsPage() {
     maintenanceTransitionRate: String(BENCHMARKS.maintenanceTransitionRate),
     operatingProfitRate: String(BENCHMARKS.operatingProfitRate),
     revenuePerUnit: String(BENCHMARKS.revenuePerUnit),
+    // 平均保険点数の適正範囲（未設定ならKPI定義の既定値が使われる）
+    pointsPerPatientMin: "", pointsPerPatientMax: "",
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -89,6 +93,7 @@ export default function SettingsPage() {
           prefecture: data.prefecture, city: data.city, address: data.address,
           openingYear: data.openingYear, corporateType: data.corporateType,
           clinicType: data.clinicType, isHomeVisit: data.isHomeVisit,
+          discontinuedJudgeMonths: data.discontinuedJudgeMonths ?? 3,
         });
 
         if (data.profile) {
@@ -128,6 +133,8 @@ export default function SettingsPage() {
             maintenanceTransitionRate: data.target.maintenanceTransitionRate ? String(data.target.maintenanceTransitionRate) : String(BENCHMARKS.maintenanceTransitionRate),
             operatingProfitRate: data.target.operatingProfitRate ? String(data.target.operatingProfitRate) : String(BENCHMARKS.operatingProfitRate),
             revenuePerUnit: data.target.revenuePerUnit ? String(data.target.revenuePerUnit) : String(BENCHMARKS.revenuePerUnit),
+            pointsPerPatientMin: data.target.pointsPerPatientMin ? String(data.target.pointsPerPatientMin) : "",
+            pointsPerPatientMax: data.target.pointsPerPatientMax ? String(data.target.pointsPerPatientMax) : "",
           });
         }
       }
@@ -180,6 +187,8 @@ export default function SettingsPage() {
           maintenanceTransitionRate: Number(targets.maintenanceTransitionRate) || null,
           operatingProfitRate: Number(targets.operatingProfitRate) || null,
           revenuePerUnit: Number(targets.revenuePerUnit) || null,
+          pointsPerPatientMin: Number(targets.pointsPerPatientMin) || null,
+          pointsPerPatientMax: Number(targets.pointsPerPatientMax) || null,
         }),
       });
       setMessage(res.ok ? "目標値を保存しました" : "保存に失敗しました");
@@ -263,6 +272,21 @@ export default function SettingsPage() {
                   <input type="checkbox" checked={clinic.isHomeVisit} onChange={(e) => setClinic({ ...clinic, isHomeVisit: e.target.checked })} className="rounded" />
                   <span className="text-sm">訪問診療を行っている</span>
                 </label>
+              </div>
+              <div className="md:col-span-2">
+                <Label>中断患者の判定期間</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm text-gray-600">最終来院から</span>
+                  <Input
+                    type="number" min={1} max={24} className="w-24"
+                    value={clinic.discontinuedJudgeMonths ?? 3}
+                    onChange={(e) => setClinic({ ...clinic, discontinuedJudgeMonths: Number(e.target.value) || 0 })}
+                  />
+                  <span className="text-sm text-gray-600">ヶ月、次回予約が無ければ「中断」とみなす</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  短くすると連絡対象が増え、長くすると見逃しが増えます。患者分析の「中断患者の実数」に反映されます。
+                </p>
               </div>
             </div>
             <div className="mt-4 flex justify-end">
@@ -396,6 +420,14 @@ export default function SettingsPage() {
               <div><Label>メンテ移行率目標（%）</Label><Input type="number" value={targets.maintenanceTransitionRate} onChange={(e) => setTargets((t) => ({ ...t, maintenanceTransitionRate: e.target.value }))} /></div>
               <div><Label>営業利益率目標（%）</Label><Input type="number" value={targets.operatingProfitRate} onChange={(e) => setTargets((t) => ({ ...t, operatingProfitRate: e.target.value }))} /></div>
               <div><Label>ユニット当たり売上目標（円）</Label><Input type="number" value={targets.revenuePerUnit} onChange={(e) => setTargets((t) => ({ ...t, revenuePerUnit: e.target.value }))} /></div>
+              <div>
+                <Label>平均保険点数の適正範囲・下限（点）</Label>
+                <Input type="number" value={targets.pointsPerPatientMin} onChange={(e) => setTargets((t) => ({ ...t, pointsPerPatientMin: e.target.value }))} placeholder="例: 1200" />
+              </div>
+              <div>
+                <Label>平均保険点数の適正範囲・上限（点）</Label>
+                <Input type="number" value={targets.pointsPerPatientMax} onChange={(e) => setTargets((t) => ({ ...t, pointsPerPatientMax: e.target.value }))} placeholder="例: 1600" />
+              </div>
             </div>
             <div className="mt-4 flex justify-end">
               <Button onClick={saveTargets} disabled={saving}>{saving ? "保存中..." : "目標値を保存"}</Button>
