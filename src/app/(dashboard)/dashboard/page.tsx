@@ -6,6 +6,8 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils";
 import { getKpiStatus, KPI_DEFINITIONS } from "@/lib/kpi-calculator";
+import { getKpiVerdict, formatChange } from "@/lib/kpi-verdict";
+import { MonthlyBriefing } from "@/components/ui/monthly-briefing";
 import { PeriodSelector } from "@/components/ui/period-selector";
 import { AnalysisModeSelector } from "@/components/ui/analysis-mode-selector";
 import { ModeGate } from "@/components/ui/mode-gate";
@@ -201,6 +203,9 @@ export default function DashboardPage() {
 
       {kpis.length > 0 && (
         <>
+          {/* 数字を並べる前に、日本語で状況と打ち手を伝える */}
+          <MonthlyBriefing clinicId={selectedClinicId} yearMonth={yearMonth} />
+
           {/* 主要KPIカード */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {mainKpis.map((code) => {
@@ -210,11 +215,16 @@ export default function DashboardPage() {
               const def = KPI_DEFINITIONS[code];
               const isPercent = def?.format === "percent";
               const isCurrency = def?.format === "currency";
+              // 色だけでなく「目安と比べてどうか」を言葉でも添える
+              const v = getKpiVerdict(code, kpi.kpiValue);
 
               return (
                 <KpiCard
                   key={code}
                   label={KPI_LABELS[code] || code}
+                  benchmarkLabel={v.benchmarkLabel}
+                  verdict={v.verdict}
+                  changeText={formatChange(code, kpi.comparisonPrevMonth)}
                   value={
                     isCurrency
                       ? formatCurrency(kpi.kpiValue)
@@ -225,14 +235,6 @@ export default function DashboardPage() {
                   status={statusMap(getKpiStatus(code, kpi.kpiValue))}
                   target={kpi.targetValue != null
                     ? (isCurrency ? formatCurrency(kpi.targetValue) : isPercent ? formatPercent(kpi.targetValue) : String(kpi.targetValue))
-                    : undefined}
-                  change={kpi.comparisonPrevMonth != null
-                    ? {
-                        value: kpi.kpiValue !== 0
-                          ? (kpi.comparisonPrevMonth / (kpi.kpiValue - kpi.comparisonPrevMonth)) * 100
-                          : 0,
-                        label: "前月比",
-                      }
                     : undefined}
                 />
               );

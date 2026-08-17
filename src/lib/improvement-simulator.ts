@@ -25,9 +25,49 @@ export interface Opportunity {
   target: string;
   /** 具体的な打ち手 */
   suggestion: string;
-  /** 月次の金額インパクト（円） */
+  /** 月次の金額インパクト（円）。理論上の上限であり、達成を約束する額ではない */
   monthlyImpact: number;
   difficulty: Difficulty;
+  /**
+   * その金額を実現するために何が必要かを一言で示す。
+   * 上限値だけを見せると「月+800万円」のような非現実的な期待を与えるため、
+   * 規模の実感が湧く条件を添える。
+   */
+  feasibilityNote?: string;
+}
+
+/**
+ * 「今月やること」の優先順位づけ
+ *
+ * 金額の大きさだけで並べると、効果は大きいが着手しにくい施策（人件費の見直しなど）が
+ * 上位を占め、結局どれも実行されない。取り組みやすさで重みを付け、
+ * 「すぐ着手できて、それなりに効く」施策が上位に来るようにする。
+ */
+const DIFFICULTY_WEIGHT: Record<Difficulty, number> = {
+  LOW: 1.0,    // 明日から始められる（リマインドの徹底など）
+  MEDIUM: 0.7, // 運用の仕組みづくりが要る
+  HIGH: 0.45,  // 体制・契約の見直しが要る
+};
+
+export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
+  LOW: "すぐ着手できる",
+  MEDIUM: "準備が必要",
+  HIGH: "腰を据えて取り組む",
+};
+
+/**
+ * 1ヶ月で動かせる現実的な上限の目安（月商に対する割合）。
+ * 空き枠損失のように理論値が月商の6割に達する項目があり、そのまま順位付けすると
+ * 毎月同じ項目が1位を占めて他の提案が埋もれる。順位の計算だけこの割合で頭打ちにする
+ * （表示する金額は元の試算のまま。数字を書き換えると根拠が追えなくなるため）。
+ */
+const RANKING_CAP_RATIO = 0.15;
+
+/** 優先度の高い順に並べ替える（同点なら金額の大きい順） */
+export function rankOpportunities(ops: Opportunity[], monthlyRevenue = 0): Opportunity[] {
+  const cap = monthlyRevenue > 0 ? monthlyRevenue * RANKING_CAP_RATIO : Infinity;
+  const score = (o: Opportunity) => Math.min(o.monthlyImpact, cap) * DIFFICULTY_WEIGHT[o.difficulty];
+  return [...ops].sort((a, b) => score(b) - score(a) || b.monthlyImpact - a.monthlyImpact);
 }
 
 /** 目標値。未設定の項目はベンチマークで代替する */
@@ -63,6 +103,18 @@ export function simulateImprovements(
   const chairUtil = v("chairUtilization");
   const idleLoss = v("idleChairLoss");
   if (idleLoss > 0) {
+    // 上限まで埋めるには何人増やす必要があるかを添える。
+    // 金額だけを見せると、実際には患者数を6割増やす話だと伝わらない。
+    const perPatient = v("revenuePerPatient");
+    const clinicDays = v("patientsPerDay") > 0 ? v("totalPatientCount") / v("patientsPerDay") : 0;
+    let note: string | undefined;
+    if (perPatient > 0) {
+      const needPatients = Math.round(idleLoss / perPatient);
+      const perDay = clinicDays > 0 ? needPatients / clinicDays : 0;
+      note = `この金額は空き枠をすべて埋めた場合の上限です。実現には延患者を月${needPatients.toLocaleString()}人`
+        + (perDay > 0 ? `（1日あたり約${perDay.toFixed(1)}人）` : "")
+        + "増やす必要があります。まずは数ポイントの改善を目標にしてください。";
+    }
     ops.push({
       code: "chairUtilization",
       title: "チェア稼働率の向上",
@@ -72,6 +124,7 @@ export function simulateImprovements(
       suggestion: "空き枠にリコール対象患者を優先的に充当してください。キャンセル発生時に当日枠へ補充するルールを決め、待機患者リストを整備すると埋まりやすくなります。",
       monthlyImpact: idleLoss,
       difficulty: "MEDIUM",
+      feasibilityNote: note,
     });
   }
 
