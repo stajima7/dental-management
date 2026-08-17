@@ -46,7 +46,8 @@ function formatValue(kpiCode: string, value: number): string {
 export function getKpiVerdict(kpiCode: string, value: number): KpiVerdict {
   const def = KPI_DEFINITIONS[kpiCode];
   const none: KpiVerdict = { benchmarkLabel: null, verdict: null, tone: "neutral" };
-  if (!def) return none;
+  // 壊れた値に対して断定的な判定を出さない（NaNは比較が常にfalseになり誤判定を招く）
+  if (!def || !Number.isFinite(value)) return none;
 
   const status = getKpiStatus(kpiCode, value);
   const tone =
@@ -88,7 +89,8 @@ export function getKpiVerdict(kpiCode: string, value: number): KpiVerdict {
 
 /** 前月比を「先月より◯◯増えました」の形にする。差が無い場合は null */
 export function formatChange(kpiCode: string, diff: number | null | undefined): string | null {
-  if (diff == null || diff === 0) return null;
+  // 計算が壊れた月に「NaN円減りました」と出さないよう、有限の数値だけを扱う
+  if (diff == null || !Number.isFinite(diff) || diff === 0) return null;
   const def = KPI_DEFINITIONS[kpiCode];
   if (!def) return null;
 

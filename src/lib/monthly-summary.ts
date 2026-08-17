@@ -82,7 +82,11 @@ export function buildMonthlySummary(
   recentTrend?: Record<string, number[]>
 ): SummaryLine[] {
   const lines: SummaryLine[] = [];
-  const map = new Map(kpis.map((k) => [k.kpiCode, k]));
+  // 壊れた値（NaN・Infinity）は文章に混ぜない。「自費率はInfinity%です」と
+  // 出すくらいなら、その行を出さないほうがよい
+  const map = new Map(
+    kpis.filter((k) => Number.isFinite(k.kpiValue)).map((k) => [k.kpiCode, k])
+  );
   const val = (c: string) => map.get(c)?.kpiValue ?? 0;
   const usable = (c: string) => map.has(c) && kpiVisibleInMode(c, mode) && val(c) !== 0;
 
@@ -139,7 +143,7 @@ export function buildMonthlySummary(
   // 単月の良し悪しより、続いている変化のほうが先に手を打つ価値がある
   if (recentTrend) {
     for (const code of ["newPatientCount", "totalPatientCount", "uniquePatientCount", "totalRevenue"]) {
-      const series = recentTrend[code];
+      const series = recentTrend[code]?.filter((v) => Number.isFinite(v));
       if (!series || series.length < 3 || !kpiVisibleInMode(code, mode)) continue;
       // series は新しい順。3ヶ月続けて前月を下回っているか
       const declining = series.slice(0, 3).every((v, i, arr) => i === 0 || (arr[i - 1] < v && v > 0));
