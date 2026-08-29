@@ -98,6 +98,8 @@ model Clinic {
   monthlyRecalls          MonthlyRecall[]
   monthlyCancelDetails    MonthlyCancelDetail[]
   monthlyDiscontinued     MonthlyDiscontinued[]
+  staffCostRates          StaffCostRate[]
+  expansionSetting        ExpansionSetting?
   uploadFiles             UploadFile[]
   importJobs              ImportJob[]
   importMappings          ImportMapping[]
@@ -172,6 +174,9 @@ model ClinicProfile {
   workHours              String?
   // チェア稼働率の算出に使う。1患者あたりの平均チェア占有時間（分）
   avgTreatmentMinutes    Int      @default(45)
+  // メンテナンス1件あたりの平均時間（分）。衛生士の余力判定に使う。
+  // 治療と所要時間が異なるため、avgTreatmentMinutes とは分けて持つ
+  avgMaintenanceMinutes  Int      @default(45)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 
@@ -346,6 +351,55 @@ model MonthlyAppointments {
   updatedAt        DateTime       @updatedAt
 
   @@unique([clinicId, yearMonth, departmentType])
+}
+
+// ============ 職種別の人件費単価 ============
+// 「歯科衛生士を1名増やすと月いくら増えるか」を試算するために使う。
+// 月次コストは総額しか持たないため、増員の損得は単価が無いと出せない。
+model StaffCostRate {
+  id          String    @id @default(cuid())
+  clinicId    String
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  role        StaffRole
+  /** 1名あたりの月額人件費（社会保険料の事業主負担を含む想定） */
+  monthlyCost Float     @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([clinicId, role])
+}
+
+enum StaffRole {
+  DENTIST    // 歯科医師（勤務医）
+  HYGIENIST  // 歯科衛生士
+  ASSISTANT  // 歯科助手
+  RECEPTION  // 受付
+  TECHNICIAN // 技工士
+}
+
+// ============ 増設シミュレーションの前提 ============
+// 台数を増やしたときの売上の伸び方と、税額の計算に使う前提値。
+// 税制の要件・金額は改正されるため、プログラムに直接書かず医院ごとに保持する。
+model ExpansionSetting {
+  id                     String   @id @default(cuid())
+  clinicId               String   @unique
+  clinic                 Clinic   @relation(fields: [clinicId], references: [id])
+  /** 基準台数。ここまでは1台あたりの売上が落ちないとみなす */
+  baseUnitCount          Int      @default(3)
+  /** 基準台数までの1台あたり年間売上（円）。未設定なら実績から推計 */
+  revenuePerUnitBase     Float?
+  /** 基準台数を超えた分の1台あたり年間売上（円）。逓減を表す */
+  revenuePerUnitMarginal Float?
+  /** 概算経費の特例（租税特別措置法26条）を判定に含めるか */
+  useSpecialExpense      Boolean  @default(true)
+  /** 特例の要件：社会保険診療報酬の上限（円） */
+  insuranceRevenueCap    Float    @default(50000000)
+  /** 特例の要件：医業収入合計の上限（円） */
+  totalRevenueCap        Float    @default(70000000)
+  /** ユニット1台の増設にかかる初期費用（円）。回収期間の目安に使う */
+  unitInvestmentCost     Float    @default(3000000)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }
 
 // ============ 月次リコール（呼び戻し） ============

@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/department", label: "部門別採算", icon: "📋" },
   { href: "/analysis/patient", label: "患者分析", icon: "🧑‍⚕️" },
   { href: "/action", label: "改善提案", icon: "🎯" },
+  { href: "/capacity", label: "増員・増設の検討", icon: "📈" },
   { href: "/glossary", label: "用語集", icon: "📖" },
   { href: "/users", label: "ユーザー管理", icon: "👤" },
   { href: "/master", label: "マスタ管理", icon: "🔧" },
