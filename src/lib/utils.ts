@@ -7,7 +7,13 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatCurrency(value: number): string {
   if (Math.abs(value) >= 10000) {
-    return `${(value / 10000).toFixed(1)}万円`
+    const man = value / 10000
+    // 1,000万円を超えると小数第1位は1,000円単位の情報でしかなく、
+    // 「6900.0万円」のように桁が読み取りにくくなる。整数に丸めて桁区切りを入れる
+    if (Math.abs(man) >= 1000) {
+      return `${Math.round(man).toLocaleString()}万円`
+    }
+    return `${man.toFixed(1)}万円`
   }
   // 分単価や人時生産性など1万円未満の指標は小数が出るため円単位に丸める
   return `${Math.round(value).toLocaleString()}円`
