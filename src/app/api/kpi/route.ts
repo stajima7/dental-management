@@ -158,6 +158,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "clinicId, yearMonthが必要です" }, { status: 400 });
     }
 
+    // 削除より前に所属を確認する。再計算のGET側でも確認はしているが、
+    // それは削除の後なので、所属していない利用者でも他院のKPIを消せてしまっていた
+    const clinicUser = await prisma.clinicUser.findUnique({
+      where: { userId_clinicId: { userId: (session.user as { id?: string }).id ?? "", clinicId } },
+    });
+    if (!clinicUser) {
+      return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
+    }
+
     // 既存KPIを削除して再計算
     await prisma.monthlyKpis.deleteMany({
       where: { clinicId, yearMonth },

@@ -69,6 +69,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "clinicId, yearMonthが必要です" }, { status: 400 });
     }
 
+    // 削除より前に所属を確認する。確認が無かったため、所属していない利用者でも
+    // 他院の部門別採算を消し、他院の売上・コストから再計算した結果を受け取れてしまっていた
+    const clinicUser = await prisma.clinicUser.findUnique({
+      where: { userId_clinicId: { userId: (session.user as { id?: string }).id ?? "", clinicId } },
+    });
+    if (!clinicUser) {
+      return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
+    }
+
     // 既存データ削除
     await prisma.departmentProfitability.deleteMany({
       where: { clinicId, yearMonth },
