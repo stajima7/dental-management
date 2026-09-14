@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { clinicName, corporateName, prefecture, city, openingYear, corporateType, clinicType, isHomeVisit } = result.data;
+    const { clinicName, corporateName, prefecture, city, address, openingYear, corporateType, clinicType, isHomeVisit } = result.data;
 
     const clinic = await prisma.clinic.create({
       data: {
@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
         corporateName: corporateName || null,
         prefecture: prefecture || null,
         city: city || null,
+        // スキーマは受け付けていたのに保存していなかったため、番地・建物名が失われていた
+        address: address?.trim() || null,
         openingYear: openingYear || null,
         corporateType: corporateType || "INDIVIDUAL",
         clinicType: clinicType || "[]",

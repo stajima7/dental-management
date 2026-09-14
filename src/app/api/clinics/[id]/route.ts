@@ -105,6 +105,13 @@ export async function PUT(
     if (corporateName !== undefined) updateData.corporateName = corporateName;
     if (prefecture !== undefined) updateData.prefecture = prefecture;
     if (city !== undefined) updateData.city = city;
+    // 医院設定画面に住所の入力欄があるのに保存していなかったため、
+    // 入力しても「保存しました」と表示されたまま住所だけが捨てられていた
+    if (body.address !== undefined) {
+      updateData.address = typeof body.address === "string" && body.address.trim()
+        ? body.address.trim().slice(0, 500)
+        : null;
+    }
     if (openingYear !== undefined) updateData.openingYear = openingYear;
     if (corporateType !== undefined) updateData.corporateType = corporateType;
     if (clinicType !== undefined) updateData.clinicType = clinicType;

@@ -21,6 +21,7 @@ export default function SetupPage() {
   const [corporateName, setCorporateName] = useState("");
   const [prefecture, setPrefecture] = useState("");
   const [city, setCity] = useState("");
+  const [address, setAddress] = useState("");
   const [openingYear, setOpeningYear] = useState<number | "">("");
   const [corporateType, setCorporateType] = useState<"INDIVIDUAL" | "CORPORATION">("INDIVIDUAL");
   const [clinicType, setClinicType] = useState<string[]>([]);
@@ -81,6 +82,7 @@ export default function SetupPage() {
           corporateName,
           prefecture,
           city,
+          address,
           openingYear: openingYear || null,
           corporateType,
           clinicType: JSON.stringify(clinicType),
@@ -206,6 +208,7 @@ export default function SetupPage() {
                 <div><Label>都道府県</Label><Input value={prefecture} onChange={e => setPrefecture(e.target.value)} placeholder="東京都" className="mt-1" /></div>
                 <div><Label>市区町村</Label><Input value={city} onChange={e => setCity(e.target.value)} placeholder="渋谷区" className="mt-1" /></div>
               </div>
+              <div><Label>番地・建物名</Label><Input value={address} onChange={e => setAddress(e.target.value)} placeholder="道玄坂1-2-3 ○○ビル4F" className="mt-1" /></div>
               <div><Label>開業年</Label>{numInput(openingYear, setOpeningYear, "2010")}</div>
               <div>
                 <Label>医院タイプ（複数選択可）</Label>
@@ -309,7 +312,7 @@ export default function SetupPage() {
                 <h4 className="text-sm font-semibold text-blue-600 mb-2">医院情報</h4>
                 <div className="text-sm space-y-1">
                   <div><strong>医院名:</strong> {clinicName || "-"}</div>
-                  <div><strong>所在地:</strong> {prefecture} {city}</div>
+                  <div><strong>所在地:</strong> {prefecture} {city} {address}</div>
                   <div><strong>法人形態:</strong> {corporateType === "CORPORATION" ? "医療法人" : "個人"}</div>
                 </div>
               </div>
