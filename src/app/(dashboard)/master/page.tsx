@@ -1,5 +1,7 @@
 "use client";
 
+import { ClinicSwitcher } from "@/components/ui/clinic-switcher";
+
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -99,7 +101,10 @@ export default function MasterPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">マスタ管理</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-gray-900">マスタ管理</h1>
+        <ClinicSwitcher value={clinicId} onChange={(id) => { setClinicId(id); initData(id); }} />
+      </div>
 
       {message && <div className={`px-4 py-3 rounded text-sm ${message.includes("失敗") ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`}>{message}</div>}
 

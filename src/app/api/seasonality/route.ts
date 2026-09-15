@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { analyzeSeasonality } from "@/lib/seasonality";
 import { KPI_DEFINITIONS } from "@/lib/kpi-calculator";
+import { getClinicAccess } from "@/lib/access";
 
 /**
  * GET /api/seasonality?clinicId=xxx&kpiCode=totalRevenue
@@ -33,9 +34,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId, clinicId } },
-    });
+    const clinicUser = await getClinicAccess(userId, clinicId);
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
     }

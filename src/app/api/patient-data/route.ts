@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getClinicAccess } from "@/lib/access";
 
 /**
  * 患者データ（リコール／キャンセル理由／中断患者）の取得・保存。
@@ -11,9 +12,7 @@ import prisma from "@/lib/prisma";
  */
 
 async function assertAccess(userId: string, clinicId: string) {
-  const clinicUser = await prisma.clinicUser.findUnique({
-    where: { userId_clinicId: { userId, clinicId } },
-  });
+  const clinicUser = await getClinicAccess(userId, clinicId);
   return !!clinicUser;
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getClinicAccess } from "@/lib/access";
 
 /**
  * GET /api/patient-detail?clinicId=xxx&yearMonth=2025-01
@@ -26,9 +27,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "clinicId, yearMonthが必要です" }, { status: 400 });
     }
 
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as { id: string }).id, clinicId } },
-    });
+    const clinicUser = await getClinicAccess((session.user as { id: string }).id, clinicId);
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
     }

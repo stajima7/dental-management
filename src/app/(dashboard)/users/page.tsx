@@ -1,5 +1,7 @@
 "use client";
 
+import { ClinicSwitcher } from "@/components/ui/clinic-switcher";
+
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -121,7 +123,10 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">ユーザー管理</h1>
-        <Button onClick={() => setShowInvite(!showInvite)}>ユーザー招待</Button>
+        <div className="flex items-center gap-3">
+          <ClinicSwitcher value={clinicId} onChange={(id) => { setClinicId(id); loadUsers(id); }} />
+          <Button onClick={() => setShowInvite(!showInvite)}>ユーザー招待</Button>
+        </div>
       </div>
 
       {message && (

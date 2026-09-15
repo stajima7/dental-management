@@ -2,15 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { DepartmentType } from "@prisma/client";
+import { getClinicAccess } from "@/lib/access";
 
 // ログインしているだけでは足りない。医院に所属していない利用者が
 // 他院の配賦の基礎数値（面積・勤務時間・患者数など）を読み書きできてしまうため、
 // 他のAPIと同じく所属を確認する。
 async function hasAccess(userId: string | undefined, clinicId: string) {
   if (!userId) return false;
-  const clinicUser = await prisma.clinicUser.findUnique({
-    where: { userId_clinicId: { userId, clinicId } },
-  });
+  const clinicUser = await getClinicAccess(userId, clinicId);
   return !!clinicUser;
 }
 

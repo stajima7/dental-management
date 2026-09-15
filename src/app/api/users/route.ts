@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import crypto from "crypto"
+import { getClinicAccess } from "@/lib/access";
 
 // GET /api/users?clinicId=xxx - 医院のユーザー一覧
 export async function GET(req: NextRequest) {
@@ -13,9 +14,7 @@ export async function GET(req: NextRequest) {
     const clinicId = new URL(req.url).searchParams.get("clinicId")
     if (!clinicId) return NextResponse.json({ error: "clinicIdが必要です" }, { status: 400 })
 
-    const cu = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    })
+    const cu = await getClinicAccess((session.user as any).id, clinicId)
     if (!cu) return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
 
     const clinicUsers = await prisma.clinicUser.findMany({
@@ -50,9 +49,7 @@ export async function POST(req: NextRequest) {
     if (!clinicId || !email) return NextResponse.json({ error: "clinicId, emailが必要です" }, { status: 400 })
 
     // ADMIN権限チェック
-    const cu = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    })
+    const cu = await getClinicAccess((session.user as any).id, clinicId)
     if (!cu || cu.role !== "ADMIN") return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 })
 
     // 既存ユーザーか確認
@@ -100,9 +97,7 @@ export async function PUT(req: NextRequest) {
 
     if (!clinicId || !userId) return NextResponse.json({ error: "clinicId, userIdが必要です" }, { status: 400 })
 
-    const cu = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    })
+    const cu = await getClinicAccess((session.user as any).id, clinicId)
     if (!cu || cu.role !== "ADMIN") return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 })
 
     // 自分自身のADMIN権限は変更不可
@@ -141,9 +136,7 @@ export async function DELETE(req: NextRequest) {
 
     if (!clinicId) return NextResponse.json({ error: "clinicIdが必要です" }, { status: 400 })
 
-    const cu = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    })
+    const cu = await getClinicAccess((session.user as any).id, clinicId)
     if (!cu || cu.role !== "ADMIN") return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 })
 
     if (invitationId) {

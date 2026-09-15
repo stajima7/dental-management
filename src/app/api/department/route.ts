@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getClinicAccess } from "@/lib/access";
 
 /**
  * GET /api/department?clinicId=xxx&yearMonth=2025-01
@@ -21,14 +22,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "clinicId, yearMonthが必要です" }, { status: 400 });
     }
 
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: {
-        userId_clinicId: {
-          userId: (session.user as any).id,
-          clinicId,
-        },
-      },
-    });
+    const clinicUser = await getClinicAccess((session.user as any).id, clinicId);
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
     }
@@ -71,9 +65,7 @@ export async function POST(req: NextRequest) {
 
     // 削除より前に所属を確認する。確認が無かったため、所属していない利用者でも
     // 他院の部門別採算を消し、他院の売上・コストから再計算した結果を受け取れてしまっていた
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as { id?: string }).id ?? "", clinicId } },
-    });
+    const clinicUser = await getClinicAccess((session.user as { id?: string }).id, clinicId);
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
     }

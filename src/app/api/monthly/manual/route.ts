@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import { DepartmentType, RevenueType, InsuranceType, CostLayer } from "@prisma/client"
+import { getClinicAccess } from "@/lib/access";
 
 // POST /api/monthly/manual - 手入力による月次データ保存
 export async function POST(req: NextRequest) {
@@ -19,14 +20,7 @@ export async function POST(req: NextRequest) {
     }
 
     // アクセス権確認
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: {
-        userId_clinicId: {
-          userId: (session.user as any).id,
-          clinicId,
-        },
-      },
-    })
+    const clinicUser = await getClinicAccess((session.user as any).id, clinicId)
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import { actionPlanCreateSchema, formatZodErrors } from "@/lib/validations"
+import { getClinicAccess } from "@/lib/access";
 
 // GET /api/action?clinicId=xxx
 export async function GET(req: NextRequest) {
@@ -17,9 +18,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "clinicIdが必要です" }, { status: 400 })
     }
 
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    })
+    const clinicUser = await getClinicAccess((session.user as any).id, clinicId)
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
     }
@@ -56,9 +55,7 @@ export async function POST(req: NextRequest) {
     const { clinicId, insightId, title, description, status, dueDate, assignee,
       kpiCode, baselineValue, targetValue, resultValue, expectedImpact } = validation.data
 
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    })
+    const clinicUser = await getClinicAccess((session.user as any).id, clinicId)
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
     }
@@ -112,9 +109,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "プランが見つかりません" }, { status: 404 })
     }
 
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId: existing.clinicId } },
-    })
+    const clinicUser = await getClinicAccess((session.user as any).id, existing.clinicId)
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
     }
@@ -175,9 +170,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "プランが見つかりません" }, { status: 404 })
     }
 
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId: existing.clinicId } },
-    })
+    const clinicUser = await getClinicAccess((session.user as any).id, existing.clinicId)
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
     }

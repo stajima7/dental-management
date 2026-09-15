@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getClinicAccess } from "@/lib/access";
 
 /**
  * 増設シミュレーションの前提（職種別の人件費単価・売上の伸び方・税の要件）の取得と保存。
@@ -12,7 +13,7 @@ const ROLES = ["DENTIST", "HYGIENIST", "ASSISTANT", "RECEPTION", "TECHNICIAN"] a
 type Role = (typeof ROLES)[number];
 
 async function assertAccess(userId: string, clinicId: string) {
-  return !!(await prisma.clinicUser.findUnique({ where: { userId_clinicId: { userId, clinicId } } }));
+  return !!(await getClinicAccess(userId, clinicId));
 }
 
 export async function GET(req: NextRequest) {

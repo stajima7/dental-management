@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { simulateImprovements } from "@/lib/improvement-simulator";
+import { getClinicAccess } from "@/lib/access";
 
 /**
  * GET /api/improvement?clinicId=xxx&yearMonth=2026-07
@@ -28,9 +29,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId, clinicId } },
-    });
+    const clinicUser = await getClinicAccess(userId, clinicId);
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
     }

@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { simulateImprovements, rankOpportunities } from "@/lib/improvement-simulator";
 import { buildMonthlySummary } from "@/lib/monthly-summary";
 import { AnalysisMode, kpiVisibleInMode } from "@/lib/analysis-mode";
+import { getClinicAccess } from "@/lib/access";
 
 /**
  * GET /api/summary?clinicId=xxx&yearMonth=2026-07
@@ -38,9 +39,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "clinicId, yearMonthが必要です" }, { status: 400 });
     }
 
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId, clinicId } },
-    });
+    const clinicUser = await getClinicAccess(userId, clinicId);
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
     }

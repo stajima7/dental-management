@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
+import { getClinicAccess } from "@/lib/access";
 
 // GET /api/clinics/[id]/profile/history - プロファイル履歴一覧
 export async function GET(
@@ -12,9 +13,7 @@ export async function GET(
     if (!session?.user) return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
 
     const { id } = await params
-    const cu = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId: id } },
-    })
+    const cu = await getClinicAccess((session.user as any).id, id)
     if (!cu) return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
 
     const profiles = await prisma.clinicProfile.findMany({

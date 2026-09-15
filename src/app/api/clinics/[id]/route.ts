@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getClinicAccess } from "@/lib/access";
 
 // GET /api/clinics/[id] - 医院詳細取得
 export async function GET(
@@ -16,14 +17,7 @@ export async function GET(
     const { id } = await params;
 
     // ユーザーがこの医院にアクセスできるか確認
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: {
-        userId_clinicId: {
-          userId: (session.user as any).id,
-          clinicId: id,
-        },
-      },
-    });
+    const clinicUser = await getClinicAccess((session.user as any).id, id);
 
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
@@ -72,14 +66,7 @@ export async function PUT(
     const { id } = await params;
 
     // ユーザーがこの医院のADMINか確認
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: {
-        userId_clinicId: {
-          userId: (session.user as any).id,
-          clinicId: id,
-        },
-      },
-    });
+    const clinicUser = await getClinicAccess((session.user as any).id, id);
 
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });

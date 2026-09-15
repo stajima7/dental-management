@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { CostLayer, DepartmentType } from "@prisma/client";
 import { costSaveSchema, formatZodErrors } from "@/lib/validations";
+import { getClinicAccess } from "@/lib/access";
 
 // GET /api/costs?clinicId=xxx&yearMonth=2025-01
 export async function GET(req: NextRequest) {
@@ -20,9 +21,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "clinicIdが必要です" }, { status: 400 });
     }
 
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    });
+    const clinicUser = await getClinicAccess((session.user as any).id, clinicId);
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
     }
@@ -61,9 +60,7 @@ export async function POST(req: NextRequest) {
 
     const { clinicId, yearMonth, costs } = validation.data;
 
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    });
+    const clinicUser = await getClinicAccess((session.user as any).id, clinicId);
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
     }

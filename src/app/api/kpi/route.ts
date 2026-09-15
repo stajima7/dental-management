@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { calculateKpis } from "@/lib/kpi-calculator";
+import { getClinicAccess } from "@/lib/access";
 
 // GET /api/kpi?clinicId=xxx&yearMonth=2025-01 - KPI取得（なければ自動計算）
 export async function GET(req: NextRequest) {
@@ -20,14 +21,7 @@ export async function GET(req: NextRequest) {
     }
 
     // アクセス権確認
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: {
-        userId_clinicId: {
-          userId: (session.user as any).id,
-          clinicId,
-        },
-      },
-    });
+    const clinicUser = await getClinicAccess((session.user as any).id, clinicId);
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
     }
@@ -160,9 +154,7 @@ export async function POST(req: NextRequest) {
 
     // 削除より前に所属を確認する。再計算のGET側でも確認はしているが、
     // それは削除の後なので、所属していない利用者でも他院のKPIを消せてしまっていた
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as { id?: string }).id ?? "", clinicId } },
-    });
+    const clinicUser = await getClinicAccess((session.user as { id?: string }).id, clinicId);
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
     }

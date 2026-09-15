@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { clinicCreateSchema, formatZodErrors } from "@/lib/validations";
+import { isSuperAdmin } from "@/lib/access";
 
 // POST /api/clinics - 医院を新規作成
 export async function POST(req: NextRequest) {
@@ -60,19 +61,28 @@ export async function GET() {
 
     const userId = (session.user as any).id;
 
-    const clinicUsers = await prisma.clinicUser.findMany({
-      where: { userId },
-      include: {
-        clinic: {
+    // 管理者（SUPER_ADMIN）は所属の有無にかかわらず全医院を扱える。
+    // 画面側は所属している医院の一覧として受け取るため、同じ形に揃えて返す。
+    const clinicUsers = (await isSuperAdmin(userId))
+      ? (
+          await prisma.clinic.findMany({
+            include: { profiles: { orderBy: { createdAt: "desc" }, take: 1 } },
+            orderBy: { clinicName: "asc" },
+          })
+        ).map((clinic) => ({ clinicId: clinic.id, role: "ADMIN", clinic }))
+      : await prisma.clinicUser.findMany({
+          where: { userId },
           include: {
-            profiles: {
-              orderBy: { createdAt: "desc" },
-              take: 1,
+            clinic: {
+              include: {
+                profiles: {
+                  orderBy: { createdAt: "desc" },
+                  take: 1,
+                },
+              },
             },
           },
-        },
-      },
-    });
+        });
 
     // 各医院で実績データが存在する最新月（画面の初期表示月に使う）
     const latestMonths = await Promise.all(

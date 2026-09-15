@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getClinicAccess } from "@/lib/access";
 
 /**
  * POST /api/allocation/calculate - 配賦計算実行
@@ -23,14 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "clinicId, yearMonthが必要です" }, { status: 400 });
     }
 
-    const clinicUser = await prisma.clinicUser.findUnique({
-      where: {
-        userId_clinicId: {
-          userId: (session.user as any).id,
-          clinicId,
-        },
-      },
-    });
+    const clinicUser = await getClinicAccess((session.user as any).id, clinicId);
     if (!clinicUser) {
       return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 });
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
+import { getClinicAccess } from "@/lib/access";
 
 // GET /api/master?clinicId=xxx&type=costItems|drivers|benchmarks|kpiDisplay
 export async function GET(req: NextRequest) {
@@ -13,9 +14,7 @@ export async function GET(req: NextRequest) {
     const type = sp.get("type")
     if (!clinicId || !type) return NextResponse.json({ error: "clinicId, typeが必要です" }, { status: 400 })
 
-    const cu = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    })
+    const cu = await getClinicAccess((session.user as any).id, clinicId)
     if (!cu) return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
 
     switch (type) {
@@ -46,9 +45,7 @@ export async function POST(req: NextRequest) {
     const { clinicId, type, items } = body
     if (!clinicId || !type || !Array.isArray(items)) return NextResponse.json({ error: "clinicId, type, itemsが必要です" }, { status: 400 })
 
-    const cu = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    })
+    const cu = await getClinicAccess((session.user as any).id, clinicId)
     if (!cu || cu.role !== "ADMIN") return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 })
 
     switch (type) {
@@ -111,9 +108,7 @@ export async function DELETE(req: NextRequest) {
     const id = sp.get("id")
     if (!clinicId || !type || !id) return NextResponse.json({ error: "clinicId, type, idが必要です" }, { status: 400 })
 
-    const cu = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    })
+    const cu = await getClinicAccess((session.user as any).id, clinicId)
     if (!cu || cu.role !== "ADMIN") return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 })
 
     switch (type) {

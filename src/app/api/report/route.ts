@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import { KPI_DEFINITIONS } from "@/lib/kpi-calculator"
 import { COST_ITEMS, DEPARTMENT_TYPES } from "@/lib/constants"
+import { getClinicAccess } from "@/lib/access";
 
 /** 費目コード → 日本語名 */
 const costItemName = (code: string) =>
@@ -28,9 +29,7 @@ export async function GET(req: NextRequest) {
     if (!clinicId) return NextResponse.json({ error: "clinicIdが必要です" }, { status: 400 })
     if (type !== "trend" && !yearMonth) return NextResponse.json({ error: "yearMonthが必要です" }, { status: 400 })
 
-    const cu = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    })
+    const cu = await getClinicAccess((session.user as any).id, clinicId)
     if (!cu) return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
 
     let data: Record<string, any>[] = []

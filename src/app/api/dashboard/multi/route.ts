@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
+import { isSuperAdmin } from "@/lib/access";
 
 // GET /api/dashboard/multi?yearMonth=2025-01 - 全医院横断ダッシュボード
 export async function GET(req: NextRequest) {
@@ -12,10 +13,16 @@ export async function GET(req: NextRequest) {
     if (!yearMonth) return NextResponse.json({ error: "yearMonthが必要です" }, { status: 400 })
 
     const userId = (session.user as any).id
-    const clinicUsers = await prisma.clinicUser.findMany({
-      where: { userId },
-      include: { clinic: { select: { id: true, clinicName: true } } },
-    })
+    // 管理者は所属していない医院も含めて横断して見られる
+    const clinicUsers = (await isSuperAdmin(userId))
+      ? (await prisma.clinic.findMany({
+          select: { id: true, clinicName: true },
+          orderBy: { clinicName: "asc" },
+        })).map((clinic) => ({ clinicId: clinic.id, clinic }))
+      : await prisma.clinicUser.findMany({
+          where: { userId },
+          include: { clinic: { select: { id: true, clinicName: true } } },
+        })
 
     const clinicIds = clinicUsers.map((cu: any) => cu.clinic.id)
 

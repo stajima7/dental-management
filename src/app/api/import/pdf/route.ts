@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
+import { getClinicAccess } from "@/lib/access";
 
 // POST /api/import/pdf - PDFファイルアップロード＆OCR処理（基盤）
 // 実際のOCR処理は外部サービス連携が必要
@@ -17,9 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ファイルとclinicIdが必要です" }, { status: 400 })
     }
 
-    const cu = await prisma.clinicUser.findUnique({
-      where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-    })
+    const cu = await getClinicAccess((session.user as any).id, clinicId)
     if (!cu) return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
 
     // ファイルサイズチェック（10MB上限）

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
+import { getClinicAccess } from "@/lib/access";
 
 // GET /api/audit?clinicId=xxx&limit=50&offset=0
 export async function GET(req: NextRequest) {
@@ -15,9 +16,7 @@ export async function GET(req: NextRequest) {
 
     // ADMIN権限チェック
     if (clinicId) {
-      const cu = await prisma.clinicUser.findUnique({
-        where: { userId_clinicId: { userId: (session.user as any).id, clinicId } },
-      })
+      const cu = await getClinicAccess((session.user as any).id, clinicId)
       if (!cu || cu.role !== "ADMIN") return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 })
     }
 

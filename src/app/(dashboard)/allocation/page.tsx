@@ -1,5 +1,7 @@
 "use client";
 
+import { ClinicSwitcher } from "@/components/ui/clinic-switcher";
+
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -215,6 +217,7 @@ export default function AllocationPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">配賦設定</h1>
         <div className="flex items-center gap-3">
+          <ClinicSwitcher value={selectedClinicId} onChange={setSelectedClinicId} />
           <input type="month" className="border border-gray-300 rounded-md px-3 py-1.5 text-sm" value={yearMonth} onChange={e => setYearMonth(e.target.value)} />
           <Button onClick={handleCalculate} disabled={loading}>
             {loading ? "計算中..." : "配賦計算実行"}
