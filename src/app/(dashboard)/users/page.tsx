@@ -20,6 +20,7 @@ interface InvitationInfo {
   id: string;
   email: string;
   role: string;
+  token: string;
   expiresAt: string;
 }
 
@@ -42,8 +43,8 @@ export default function UsersPage() {
   // 1医院あたりの人数の上限（サーバー側で数えた値をそのまま使う）
   const [limit, setLimit] = useState(0);
   const [used, setUsed] = useState(0);
-  // 未登録のアドレスだったとき、仮パスワード発行に切り替えるかを尋ねる
-  const [needsRegistration, setNeedsRegistration] = useState(false);
+  // 発行した招待URL。メールを送る仕組みが無いため、画面から手渡しで伝えてもらう
+  const [invited, setInvited] = useState<{ email: string; url: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/clinics").then((r) => r.json()).then((data) => {
@@ -69,22 +70,26 @@ export default function UsersPage() {
     setLoading(false);
   };
 
-  // createIfMissing: 未登録のアドレスでも、こちらでアカウントを作る場合だけ true
-  const invite = async (createIfMissing = false) => {
-    if (!inviteEmail) return;
+  const inviteUrlOf = (token: string) =>
+    typeof window !== "undefined" ? `${window.location.origin}/register?token=${token}` : `/register?token=${token}`;
+
+  // createIfMissing: 本人での登録が難しい場合だけ true（仮パスワードを発行する）
+  const invite = async (createIfMissing = false, emailArg?: string) => {
+    const email = emailArg || inviteEmail;
+    if (!email) return;
     setMessage("");
     setMessageError(false);
-    setNeedsRegistration(false);
     try {
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clinicId, email: inviteEmail, role: inviteRole, createIfMissing }),
+        body: JSON.stringify({ clinicId, email, role: inviteRole, createIfMissing }),
       });
       const data = await res.json();
       if (res.ok) {
         setMessage(data.message);
-        // 新規作成のときだけ仮パスワードが返る。この1回しか見られない
+        // 招待URLと仮パスワードは、それぞれ発行したときだけ返る
+        setInvited(data.token ? { email: data.email, url: inviteUrlOf(data.token) } : null);
         setCreatedAccount(data.tempPassword ? { email: data.email, tempPassword: data.tempPassword } : null);
         setInviteEmail("");
         setShowInvite(false);
@@ -92,7 +97,6 @@ export default function UsersPage() {
       } else {
         setMessage(data.error || "追加に失敗しました");
         setMessageError(true);
-        setNeedsRegistration(data.needsRegistration === true);
       }
     } catch {
       setMessage("追加に失敗しました");
@@ -139,8 +143,6 @@ export default function UsersPage() {
 
   // 管理者アカウントは枠に含めないため、人数はサーバーが数えた値を使う
   const isFull = limit > 0 && used >= limit;
-  // 本人に案内する新規登録ページ
-  const regUrl = typeof window !== "undefined" ? `${window.location.origin}/register` : "/register";
 
   if (loading) return <div className="animate-pulse space-y-4"><div className="h-8 bg-gray-200 rounded w-32" /><div className="h-64 bg-gray-200 rounded" /></div>;
 
@@ -163,23 +165,26 @@ export default function UsersPage() {
         <div className={`px-4 py-3 rounded text-sm ${messageError ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`}>{message}</div>
       )}
 
-      {needsRegistration && (
+      {invited && (
         <Card className="border-blue-300">
-          <CardHeader><CardTitle>ご本人に登録していただく場合</CardTitle></CardHeader>
+          <CardHeader><CardTitle>招待URLを発行しました</CardTitle></CardHeader>
           <CardContent>
             <p className="text-sm text-gray-700">
-              下のURLをご本人にお伝えし、ご自身でパスワードを決めて登録していただいてください。
-              登録が済んだら、同じメールアドレスをもう一度ここで追加すれば、この医院を見られるようになります。
+              下のURLを <span className="font-medium">{invited.email}</span> のご本人にお伝えください。
+              このURLからご自身でパスワードを決めて登録していただくと、この医院を見られるようになります。
             </p>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="font-mono text-sm bg-gray-50 border rounded px-2 py-1">{regUrl}</span>
-              <Button size="sm" variant="ghost" onClick={() => navigator.clipboard?.writeText(regUrl)}>コピー</Button>
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <span className="font-mono text-xs bg-gray-50 border rounded px-2 py-1 break-all">{invited.url}</span>
+              <Button size="sm" variant="ghost" onClick={() => navigator.clipboard?.writeText(invited.url)}>コピー</Button>
             </div>
+            <p className="mt-3 text-xs text-gray-500">
+              有効期限は7日間です。URLは下の「招待中」からいつでも取り出せます。
+            </p>
             <p className="mt-4 text-sm text-gray-600">
               ご本人での登録が難しい場合は、こちらでアカウントを作り、仮パスワードをお伝えすることもできます。
             </p>
             <div className="mt-2">
-              <Button size="sm" variant="ghost" onClick={() => invite(true)}>仮パスワードを発行して作成する</Button>
+              <Button size="sm" variant="ghost" onClick={() => invite(true, invited.email)}>仮パスワードを発行して作成する</Button>
             </div>
           </CardContent>
         </Card>
@@ -210,9 +215,9 @@ export default function UsersPage() {
           <CardHeader><CardTitle>利用者を追加</CardTitle></CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600 mb-3">
-              先に<strong>ご本人に新規登録（{regUrl}）をしていただき</strong>、そのメールアドレスをここで追加するのが基本です。
-              パスワードをご本人だけが知る状態にできます。<br />
-              まだ登録されていないアドレスを入れた場合は、こちらで仮パスワードを発行して作成することもできます。
+              未登録のアドレスなら<strong>招待URLを発行</strong>します。ご本人がそのURLからご自身でパスワードを決めて登録すると、
+              この医院を見られるようになります（パスワードは管理者にも分かりません）。<br />
+              既に登録済みのアドレスなら、そのままこの医院に追加します。
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1"><Label>メールアドレス</Label><Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="user@example.com" /></div>
@@ -235,7 +240,7 @@ export default function UsersPage() {
         <CardHeader>
           <CardTitle>
             所属ユーザー ({users.length}名)
-            {limit > 0 && <span className="ml-2 text-sm font-normal text-gray-500">登録枠 {used} / {limit}名</span>}
+            {limit > 0 && <span className="ml-2 text-sm font-normal text-gray-500">登録枠 {used} / {limit}名（招待中を含む）</span>}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -288,7 +293,10 @@ export default function UsersPage() {
                     <span className={`ml-2 inline-block px-2 py-0.5 rounded text-xs font-medium ${ROLE_COLORS[inv.role]}`}>{ROLE_LABELS[inv.role]}</span>
                     <span className="ml-2 text-xs text-gray-500">期限: {new Date(inv.expiresAt).toLocaleDateString("ja-JP")}</span>
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => cancelInvitation(inv.id)}>取消</Button>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => navigator.clipboard?.writeText(inviteUrlOf(inv.token))}>招待URLをコピー</Button>
+                    <Button size="sm" variant="ghost" onClick={() => cancelInvitation(inv.id)}>取消</Button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import crypto from "crypto"
-import { getClinicAccess, MAX_CLINIC_USERS, countClinicMembers } from "@/lib/access";
+import { getClinicAccess, MAX_CLINIC_USERS, countClinicSlotsUsed } from "@/lib/access";
+import { newInvitationToken, invitationExpiry, INVITE_EXPIRY_DAYS } from "@/lib/invitation";
 
 /**
  * 仮パスワードを作る。メールや口頭で伝える前提のため、
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
       invitations,
       // 画面で「あと何名追加できるか」を出すため
       limit: MAX_CLINIC_USERS,
-      used: await countClinicMembers(clinicId),
+      used: await countClinicSlotsUsed(clinicId),
     })
   } catch (error) {
     console.error("Users fetch error:", error)
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
     // 枝分かれの前にまとめて確認する。
     // システム全体の管理者は枠を使わない（保守のために所属しているだけのため）。
     if (existingUser?.role !== "SUPER_ADMIN") {
-      const used = await countClinicMembers(clinicId)
+      const used = await countClinicSlotsUsed(clinicId)
       if (used >= MAX_CLINIC_USERS) {
         return NextResponse.json(
           {
@@ -96,14 +97,25 @@ export async function POST(req: NextRequest) {
     }
 
     if (!existingUser && !createIfMissing) {
-      // 画面側はこの印を見て「仮パスワードを発行して作成する」を案内する
-      return NextResponse.json(
-        {
-          error: "このメールアドレスはまだ登録されていません。ご本人に新規登録していただくと、パスワードをご本人だけが知る状態にできます。",
-          needsRegistration: true,
-        },
-        { status: 400 }
-      )
+      // 招待を発行する。合言葉つきのURLを持つ人だけが登録できる。
+      // 同じアドレスに出し直した場合は合言葉を作り替える（古いURLは使えなくなる）。
+      const token = newInvitationToken()
+      const expiresAt = invitationExpiry()
+      await prisma.invitation.upsert({
+        where: { clinicId_email: { clinicId, email } },
+        update: { token, role: role || "MEMBER", expiresAt, accepted: false },
+        create: { clinicId, email, role: role || "MEMBER", token, expiresAt },
+      })
+
+      // メールは送れないため、URLは画面に出して管理者から本人に伝えてもらう
+      return NextResponse.json({
+        success: true,
+        type: "invited",
+        message: `招待URLを発行しました（有効期限${INVITE_EXPIRY_DAYS}日）。ご本人にお伝えください。`,
+        email,
+        token,
+        expiresAt,
+      })
     }
 
     if (existingUser) {
@@ -119,6 +131,9 @@ export async function POST(req: NextRequest) {
     // 管理者が仮パスワードを発行して本人に伝え、初回ログイン時に変更してもらう。
     const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : email.split("@")[0]
     const tempPassword = generateTempPassword()
+
+    // 発行済みの招待があれば取り消す。使われない招待が枠を占め続けないようにするため。
+    await prisma.invitation.deleteMany({ where: { clinicId, email } })
 
     const created = await prisma.user.create({
       data: {

@@ -82,6 +82,21 @@ export async function countClinicMembers(clinicId: string): Promise<number> {
 }
 
 /**
+ * 枠の使用数。登録済みの利用者に加え、まだ使われていない招待も1名分として数える。
+ * 招待を数えないと、上限を超える人数に招待URLを配れてしまい、
+ * 登録の段になって初めて断られることになるため。
+ */
+export async function countClinicSlotsUsed(clinicId: string): Promise<number> {
+  const [members, pendingInvites] = await Promise.all([
+    countClinicMembers(clinicId),
+    prisma.invitation.count({
+      where: { clinicId, accepted: false, expiresAt: { gt: new Date() } },
+    }),
+  ]);
+  return members + pendingInvites;
+}
+
+/**
  * 閲覧できる医院のIDを返す。管理者は全医院。
  * 医院一覧や横断集計で使う。
  */
