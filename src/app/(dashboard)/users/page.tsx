@@ -35,11 +35,15 @@ export default function UsersPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("MEMBER");
   const [message, setMessage] = useState("");
+  // 文言に「失敗」が含まれるかで色を決めていたため、失敗の案内が緑色で出ていた
+  const [messageError, setMessageError] = useState(false);
   // 作成直後の仮パスワード。再表示できないため、画面に出したままにする
   const [createdAccount, setCreatedAccount] = useState<{ email: string; tempPassword: string } | null>(null);
   // 1医院あたりの人数の上限（サーバー側で数えた値をそのまま使う）
   const [limit, setLimit] = useState(0);
   const [used, setUsed] = useState(0);
+  // 未登録のアドレスだったとき、仮パスワード発行に切り替えるかを尋ねる
+  const [needsRegistration, setNeedsRegistration] = useState(false);
 
   useEffect(() => {
     fetch("/api/clinics").then((r) => r.json()).then((data) => {
@@ -65,14 +69,17 @@ export default function UsersPage() {
     setLoading(false);
   };
 
-  const invite = async () => {
+  // createIfMissing: 未登録のアドレスでも、こちらでアカウントを作る場合だけ true
+  const invite = async (createIfMissing = false) => {
     if (!inviteEmail) return;
     setMessage("");
+    setMessageError(false);
+    setNeedsRegistration(false);
     try {
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clinicId, email: inviteEmail, role: inviteRole }),
+        body: JSON.stringify({ clinicId, email: inviteEmail, role: inviteRole, createIfMissing }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -84,8 +91,13 @@ export default function UsersPage() {
         loadUsers(clinicId);
       } else {
         setMessage(data.error || "追加に失敗しました");
+        setMessageError(true);
+        setNeedsRegistration(data.needsRegistration === true);
       }
-    } catch { setMessage("追加に失敗しました"); }
+    } catch {
+      setMessage("追加に失敗しました");
+      setMessageError(true);
+    }
   };
 
   const changeRole = async (userId: string, role: string) => {
@@ -127,6 +139,8 @@ export default function UsersPage() {
 
   // 管理者アカウントは枠に含めないため、人数はサーバーが数えた値を使う
   const isFull = limit > 0 && used >= limit;
+  // 本人に案内する新規登録ページ
+  const regUrl = typeof window !== "undefined" ? `${window.location.origin}/register` : "/register";
 
   if (loading) return <div className="animate-pulse space-y-4"><div className="h-8 bg-gray-200 rounded w-32" /><div className="h-64 bg-gray-200 rounded" /></div>;
 
@@ -146,7 +160,29 @@ export default function UsersPage() {
       )}
 
       {message && (
-        <div className={`px-4 py-3 rounded text-sm ${message.includes("失敗") ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`}>{message}</div>
+        <div className={`px-4 py-3 rounded text-sm ${messageError ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`}>{message}</div>
+      )}
+
+      {needsRegistration && (
+        <Card className="border-blue-300">
+          <CardHeader><CardTitle>ご本人に登録していただく場合</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-700">
+              下のURLをご本人にお伝えし、ご自身でパスワードを決めて登録していただいてください。
+              登録が済んだら、同じメールアドレスをもう一度ここで追加すれば、この医院を見られるようになります。
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="font-mono text-sm bg-gray-50 border rounded px-2 py-1">{regUrl}</span>
+              <Button size="sm" variant="ghost" onClick={() => navigator.clipboard?.writeText(regUrl)}>コピー</Button>
+            </div>
+            <p className="mt-4 text-sm text-gray-600">
+              ご本人での登録が難しい場合は、こちらでアカウントを作り、仮パスワードをお伝えすることもできます。
+            </p>
+            <div className="mt-2">
+              <Button size="sm" variant="ghost" onClick={() => invite(true)}>仮パスワードを発行して作成する</Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {createdAccount && (
@@ -174,8 +210,9 @@ export default function UsersPage() {
           <CardHeader><CardTitle>利用者を追加</CardTitle></CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600 mb-3">
-              既に登録済みのメールアドレスならこの医院に追加します。未登録ならアカウントを作成し、
-              <strong>仮パスワード</strong>を表示します（メールは送信されません）。本人にお伝えください。
+              先に<strong>ご本人に新規登録（{regUrl}）をしていただき</strong>、そのメールアドレスをここで追加するのが基本です。
+              パスワードをご本人だけが知る状態にできます。<br />
+              まだ登録されていないアドレスを入れた場合は、こちらで仮パスワードを発行して作成することもできます。
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1"><Label>メールアドレス</Label><Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="user@example.com" /></div>
@@ -187,7 +224,7 @@ export default function UsersPage() {
                   <option value="VIEWER">閲覧者</option>
                 </select>
               </div>
-              <div className="flex items-end"><Button onClick={invite}>追加する</Button></div>
+              <div className="flex items-end"><Button onClick={() => invite(false)}>追加する</Button></div>
             </div>
           </CardContent>
         </Card>

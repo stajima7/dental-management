@@ -58,6 +58,10 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const { clinicId, email, role } = body
+    // 本人に新規登録してもらう方式を基本とし、こちらでアカウントを作るのは
+    // 管理者が画面で明示的に選んだときだけにする。
+    // 管理者が相手のパスワードを知っている状態を、既定の運用にしないため。
+    const createIfMissing = body.createIfMissing === true
 
     if (!clinicId || !email) return NextResponse.json({ error: "clinicId, emailが必要です" }, { status: 400 })
 
@@ -89,6 +93,17 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       }
+    }
+
+    if (!existingUser && !createIfMissing) {
+      // 画面側はこの印を見て「仮パスワードを発行して作成する」を案内する
+      return NextResponse.json(
+        {
+          error: "このメールアドレスはまだ登録されていません。ご本人に新規登録していただくと、パスワードをご本人だけが知る状態にできます。",
+          needsRegistration: true,
+        },
+        { status: 400 }
+      )
     }
 
     if (existingUser) {
