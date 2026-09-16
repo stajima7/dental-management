@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RosterEditor, type NewPractitioner, type RosterPatch, type RosterPractitioner } from "@/components/practitioner/roster-editor";
 import { StatsGrid, EMPTY_VALUES, MAX_MONTH_HOURS, toNumber, type GridField, type GridValues } from "@/components/practitioner/stats-grid";
-import { buildCsvTemplate, decodeCsvBuffer, readPractitionerCsv } from "@/lib/practitioner-csv";
+import { applyCsvRows, buildCsvTemplate, CSV_FIELD_LABELS, decodeCsvBuffer, readPractitionerCsv, type CsvValueField } from "@/lib/practitioner-csv";
 
 /**
  * 担当者データ登録
@@ -41,7 +41,7 @@ export default function PractitionerDataPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
-  const [csvReport, setCsvReport] = useState<{ applied: number; unmatched: string[]; errors: string[] } | null>(null);
+  const [csvReport, setCsvReport] = useState<{ applied: number; fields: CsvValueField[]; unmatched: string[]; errors: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -155,23 +155,13 @@ export default function PractitionerDataPage() {
       const text = decodeCsvBuffer(await file.arrayBuffer());
       const result = readPractitionerCsv(text, roster);
       if (result.rows.length > 0) {
-        setValues((prev) => {
-          const next = { ...prev };
-          for (const r of result.rows) {
-            next[r.practitionerId] = {
-              insuranceRevenue: str(r.insuranceRevenue),
-              selfPayRevenue: str(r.selfPayRevenue),
-              workHours: str(r.workHours),
-              patientCount: str(r.patientCount),
-            };
-          }
-          return next;
-        });
+        // CSVに無い項目（例：レセコンのCSVには無い勤務時間）は、入力済みの値を残す
+        setValues((prev) => applyCsvRows(prev, result.rows));
         setDirty(true);
       }
       // 対象外の人の行を読み込んだ場合も表に出るようにする
       setSavedIds((prev) => new Set([...prev, ...result.rows.map((r) => r.practitionerId)]));
-      setCsvReport({ applied: result.rows.length, unmatched: result.unmatched, errors: result.errors });
+      setCsvReport({ applied: result.rows.length, fields: result.fields, unmatched: result.unmatched, errors: result.errors });
     } catch {
       setMessage({ text: "CSVファイルを読み込めませんでした", error: true });
     }
@@ -287,8 +277,13 @@ export default function PractitionerDataPage() {
                   csvReport.unmatched.length > 0 || csvReport.errors.length > 0 ? "bg-amber-50 border-amber-200 text-amber-900" : "bg-blue-50 border-blue-200 text-blue-900"
                 }`}>
                   <p className="font-medium">
-                    CSVから{csvReport.applied}名分を入力欄に反映しました。内容を確認して「保存する」を押してください（まだ保存されていません）。
+                    CSVから{csvReport.applied}名分の{csvReport.fields.map((f) => CSV_FIELD_LABELS[f]).join("・")}を入力欄に反映しました。内容を確認して「保存する」を押してください（まだ保存されていません）。
                   </p>
+                  {csvReport.applied > 0 && csvReport.fields.length < 4 && (
+                    <p className="mt-1">
+                      CSVに無かった{(Object.keys(CSV_FIELD_LABELS) as CsvValueField[]).filter((f) => !csvReport.fields.includes(f)).map((f) => CSV_FIELD_LABELS[f]).join("・")}は、入力済みの値をそのまま残しています。
+                    </p>
+                  )}
                   {csvReport.unmatched.length > 0 && (
                     <p className="mt-1">⚠️ 名簿に無い氏名のため読み込まなかった行：{csvReport.unmatched.join("、")}（①で追加するか、氏名の表記を名簿に合わせてください）</p>
                   )}

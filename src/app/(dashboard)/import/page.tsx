@@ -93,7 +93,7 @@ function CsvImportTab({ clinicId }: { clinicId: string }) {
       rows.push([ym, ...labels.slice(1).map(() => "")].join(","));
     }
     // Excelで開いたときに文字化けしないようBOMを付ける
-    const blob = new Blob(["﻿" + rows.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([String.fromCharCode(0xfeff) + rows.join("\r\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

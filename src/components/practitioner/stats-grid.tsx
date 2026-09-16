@@ -38,11 +38,11 @@ export const toNumber = (s: string | undefined) => {
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
 
-const FIELDS: { key: GridField; label: string; hint: string; step: string }[] = [
-  { key: "insuranceRevenue", label: "保険売上（円）", hint: "保険点数×10円", step: "1" },
-  { key: "selfPayRevenue", label: "自費売上（円）", hint: "", step: "1" },
-  { key: "workHours", label: "勤務時間", hint: "残業を含む", step: "0.5" },
-  { key: "patientCount", label: "担当患者数", hint: "延べ人数", step: "1" },
+const FIELDS: { key: GridField; label: string; hint: string }[] = [
+  { key: "insuranceRevenue", label: "保険売上（円）", hint: "保険点数×10円" },
+  { key: "selfPayRevenue", label: "自費売上（円）", hint: "" },
+  { key: "workHours", label: "勤務時間", hint: "残業を含む" },
+  { key: "patientCount", label: "担当患者数", hint: "延べ人数" },
 ];
 
 export function StatsGrid({
@@ -113,7 +113,7 @@ export function StatsGrid({
                               type="number"
                               inputMode="decimal"
                               min={0}
-                              step={f.step}
+                              step="any"
                               aria-label={`${p.name} ${f.label}`}
                               className={`text-right ${f.key === "workHours" && hoursOver ? "border-red-400" : ""}`}
                               value={val[f.key]}
