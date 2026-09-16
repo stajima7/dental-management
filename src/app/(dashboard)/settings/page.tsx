@@ -1,6 +1,5 @@
 "use client";
 
-import { ClinicSwitcher } from "@/components/ui/clinic-switcher";
 
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -234,7 +233,6 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">設定</h1>
-        <ClinicSwitcher value={clinicId} onChange={(id) => { setClinicId(id); loadClinicData(id); }} />
       </div>
 
       {message && (

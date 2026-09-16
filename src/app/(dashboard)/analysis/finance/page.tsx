@@ -1,6 +1,5 @@
 "use client";
 
-import { ClinicSwitcher } from "@/components/ui/clinic-switcher";
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -156,7 +155,6 @@ export default function FinanceAnalysisPage() {
         <div className="flex flex-wrap items-center gap-2">
           <AnalysisModeSelector clinicId={selectedClinicId} mode={mode} onChange={setMode} />
           <ExportButton clinicId={selectedClinicId} type="kpi" yearMonth={yearMonth} label="当月KPIをCSV出力" />
-          <ClinicSwitcher value={selectedClinicId} onChange={setSelectedClinicId} />
           <input type="month" className="border border-gray-300 rounded-md px-3 py-1.5 text-sm" value={yearMonth} onChange={e => setYearMonth(e.target.value)} />
         </div>
       </div>

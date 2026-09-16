@@ -125,17 +125,6 @@ export default function DepartmentPage() {
         <h1 className="text-2xl font-bold text-gray-900">部門別採算</h1>
         <div className="flex items-center gap-3">
           <ExportButton clinicId={selectedClinicId} type="department" yearMonth={yearMonth} />
-          {clinics.length > 1 && (
-            <select
-              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm"
-              value={selectedClinicId}
-              onChange={(e) => setSelectedClinicId(e.target.value)}
-            >
-              {clinics.map((c) => (
-                <option key={c.id} value={c.id}>{c.clinicName}</option>
-              ))}
-            </select>
-          )}
           <input
             type="month"
             className="border border-gray-300 rounded-md px-3 py-1.5 text-sm"

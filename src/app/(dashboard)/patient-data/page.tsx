@@ -118,12 +118,6 @@ export default function PatientDataPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {clinics.length > 1 && (
-            <select className="border border-gray-300 rounded-md px-3 py-1.5 text-sm"
-              value={selectedClinicId} onChange={e => setSelectedClinicId(e.target.value)}>
-              {clinics.map(c => <option key={c.id} value={c.id}>{c.clinicName}</option>)}
-            </select>
-          )}
           <input type="month" className="border border-gray-300 rounded-md px-3 py-1.5 text-sm"
             value={yearMonth} onChange={e => setYearMonth(e.target.value)} />
         </div>

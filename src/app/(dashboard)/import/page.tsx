@@ -38,22 +38,6 @@ export default function ImportPage() {
       <h1 className="text-2xl font-bold text-gray-900">データ取込</h1>
 
       {/* 医院選択 */}
-      {clinics.length > 1 && (
-        <div className="flex items-center gap-3">
-          <Label>医院選択</Label>
-          <select
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm"
-            value={selectedClinicId}
-            onChange={(e) => setSelectedClinicId(e.target.value)}
-          >
-            <option value="">選択してください</option>
-            {clinics.map((c) => (
-              <option key={c.id} value={c.id}>{c.clinicName}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
       {/* タブ */}
       <div className="flex border-b border-gray-200">
         {([

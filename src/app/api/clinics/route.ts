@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+import { CLINIC_COOKIE } from "@/lib/selected-clinic";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -84,9 +86,19 @@ export async function GET() {
           },
         });
 
+    // ヘッダーで選んだ医院を先頭に並べ替える。各画面は一覧の先頭を初期表示するため、
+    // これだけで画面側に手を入れずに切り替えが全画面へ反映される。
+    const selectedId = (await cookies()).get(CLINIC_COOKIE)?.value;
+    const ordered = selectedId
+      ? (() => {
+          const i = clinicUsers.findIndex((cu: { clinicId: string }) => cu.clinicId === selectedId);
+          return i > 0 ? [clinicUsers[i], ...clinicUsers.slice(0, i), ...clinicUsers.slice(i + 1)] : clinicUsers;
+        })()
+      : clinicUsers;
+
     // 各医院で実績データが存在する最新月（画面の初期表示月に使う）
     const latestMonths = await Promise.all(
-      clinicUsers.map((cu: any) =>
+      ordered.map((cu: any) =>
         prisma.monthlyRevenue.findFirst({
           where: { clinicId: cu.clinicId },
           orderBy: { yearMonth: "desc" },
@@ -95,7 +107,7 @@ export async function GET() {
       )
     );
 
-    const clinics = clinicUsers.map((cu: any, i: number) => ({
+    const clinics = ordered.map((cu: any, i: number) => ({
       ...cu.clinic,
       role: cu.role,
       profile: cu.clinic.profiles[0] || null,
