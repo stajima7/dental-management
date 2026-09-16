@@ -78,7 +78,8 @@ export async function GET() {
           })
         ).map((clinic) => ({ clinicId: clinic.id, role: "ADMIN", clinic }))
       : await prisma.clinicUser.findMany({
-          where: { userId },
+          // 停止されている医院は一覧・切替欄に出さない
+          where: { userId, isActive: true },
           include: {
             clinic: {
               include: {

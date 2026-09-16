@@ -67,6 +67,8 @@ export default function DashboardPage() {
   const [mode, setMode] = useState<AnalysisMode>(DEFAULT_ANALYSIS_MODE);
 
   const [noClinic, setNoClinic] = useState(false);
+  // 見られる医院が無い理由が「停止」のときは、登録待ちとは別の案内を出す
+  const [suspended, setSuspended] = useState(false);
 
   useEffect(() => {
     fetch("/api/clinics")
@@ -75,6 +77,10 @@ export default function DashboardPage() {
         if (Array.isArray(data)) {
           if (data.length === 0) {
             setNoClinic(true);
+            fetch("/api/account/status")
+              .then((res) => (res.ok ? res.json() : null))
+              .then((status) => setSuspended(!!status && status.activeClinics === 0 && status.suspendedClinics > 0))
+              .catch(() => {});
           } else {
             setClinics(data);
             if (!selectedClinicId) {
@@ -168,6 +174,14 @@ export default function DashboardPage() {
                   <Button className="mt-4" onClick={() => window.location.href = "/setup"}>
                     医院を追加
                   </Button>
+                </>
+              ) : suspended ? (
+                <>
+                  <p className="text-lg font-medium">ご利用が停止されています</p>
+                  <p className="text-sm mt-2 leading-relaxed">
+                    医院の管理者により、この医院でのご利用が停止されています。<br />
+                    ご不明な点は、医院の管理者にお問い合わせください。
+                  </p>
                 </>
               ) : (
                 <>

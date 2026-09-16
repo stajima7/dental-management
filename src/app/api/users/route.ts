@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     const clinicUsers = await prisma.clinicUser.findMany({
       // システム管理者は医院の利用者として表示しない
       where: { clinicId, user: { role: { not: "SUPER_ADMIN" } } },
-      include: { user: { select: { id: true, name: true, email: true, isActive: true, createdAt: true } } },
+      include: { user: { select: { id: true, name: true, email: true, createdAt: true } } },
     })
 
     const invitations = await prisma.invitation.findMany({
@@ -59,7 +59,8 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json({
-      users: clinicUsers.map((cu: any) => ({ ...cu.user, clinicRole: cu.role })),
+      // 「有効／停止」はこの医院での状態（他の医院での状態とは別）
+      users: clinicUsers.map((cu: any) => ({ ...cu.user, isActive: cu.isActive, clinicRole: cu.role })),
       invitations,
       // 画面で「あと何名追加できるか」を出すため
       limit: MAX_CLINIC_USERS,
@@ -217,6 +218,13 @@ export async function PUT(req: NextRequest) {
     if (role !== undefined && !CLINIC_ROLES.includes(role)) {
       return NextResponse.json({ error: "権限の値が正しくありません" }, { status: 400 })
     }
+    if (isActive !== undefined && typeof isActive !== "boolean") {
+      return NextResponse.json({ error: "状態の値が正しくありません" }, { status: 400 })
+    }
+    // 自分を停止すると、この画面ごと締め出されて元に戻せなくなる
+    if (isActive === false && userId === (session.user as any).id) {
+      return NextResponse.json({ error: "自分自身は停止できません" }, { status: 400 })
+    }
 
     if (role !== undefined) {
       await prisma.clinicUser.update({
@@ -226,7 +234,12 @@ export async function PUT(req: NextRequest) {
     }
 
     if (isActive !== undefined) {
-      await prisma.user.update({ where: { id: userId }, data: { isActive } })
+      // 停止はこの医院だけに効かせる。以前はアカウント全体の印を書き換えていたが、
+      // どこでも見ておらず停止が効いていなかった
+      await prisma.clinicUser.update({
+        where: { userId_clinicId: { userId, clinicId } },
+        data: { isActive },
+      })
     }
 
     return NextResponse.json({ success: true })

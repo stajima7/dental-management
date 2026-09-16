@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
           orderBy: { clinicName: "asc" },
         })).map((clinic) => ({ clinicId: clinic.id, clinic }))
       : await prisma.clinicUser.findMany({
-          where: { userId },
+          // 停止されている医院は集計に含めない
+          where: { userId, isActive: true },
           include: { clinic: { select: { id: true, clinicName: true } } },
         })
 

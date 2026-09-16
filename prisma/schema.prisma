@@ -17,6 +17,8 @@ model User {
   image         String?
   password      String?
   role          UserRole  @default(MEMBER)
+  // ⚠️ 未使用。停止は医院ごとに ClinicUser.isActive で行う（2026-09-16 以降）。
+  // 以前はここを書き換えていたが、ログインでも所属確認でも見ておらず停止が効いていなかった
   isActive      Boolean   @default(true)
   // 管理者が仮パスワードで作成した利用者は、初回ログイン時に変更を求める。
   // 管理者が相手のパスワードを知ったままになるのを避けるため。
@@ -133,6 +135,9 @@ model ClinicUser {
   userId   String
   clinicId String
   role     UserRole @default(MEMBER)
+  // 停止はこの医院だけに効かせる（他の医院での利用には影響させない）。
+  // 所属の確認（lib/access.ts）で毎回見るため、停止した直後から弾かれる
+  isActive Boolean  @default(true)
   user     User     @relation(fields: [userId], references: [id])
   clinic   Clinic   @relation(fields: [clinicId], references: [id])
   @@unique([userId, clinicId])

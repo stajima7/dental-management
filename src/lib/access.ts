@@ -7,7 +7,10 @@
  *
  * 階層:
  *   SUPER_ADMIN … システム全体の管理者。所属していない医院も横断して扱える
- *   それ以外     … ClinicUser に所属がある医院だけ
+ *   それ以外     … ClinicUser に所属があり、停止されていない医院だけ
+ *
+ * 停止（ClinicUser.isActive = false）は、この判定を毎回通るため停止した直後の操作から効く。
+ * ログインし直すまで待つ必要はない。
  *
  * ⚠️ SUPER_ADMIN は新規登録では付与されない（登録経路で付けると誰でも全医院を
  *    見られてしまう）。DBで明示的に設定する運用とする。
@@ -52,9 +55,10 @@ export async function getClinicAccess(
 
   const clinicUser = await prisma.clinicUser.findUnique({
     where: { userId_clinicId: { userId, clinicId } },
-    select: { role: true },
+    select: { role: true, isActive: true },
   });
-  if (clinicUser) {
+  // 停止中の所属は、所属していないのと同じに扱う
+  if (clinicUser?.isActive) {
     return { role: clinicUser.role as ClinicRole, viaSuperAdmin: false };
   }
 
@@ -120,7 +124,7 @@ export async function accessibleClinicIds(userId: string | undefined | null): Pr
     return all.map((c) => c.id);
   }
   const links = await prisma.clinicUser.findMany({
-    where: { userId },
+    where: { userId, isActive: true },
     select: { clinicId: true },
   });
   return links.map((l) => l.clinicId);

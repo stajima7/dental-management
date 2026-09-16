@@ -115,15 +115,34 @@ export default function UsersPage() {
     } catch { /* ignore */ }
   };
 
-  const toggleActive = async (userId: string, isActive: boolean) => {
+  const toggleActive = async (user: UserInfo) => {
+    const label = user.name || user.email;
+    const ok = user.isActive
+      ? confirm(`${label}さんのこの医院での利用を停止しますか？
+
+停止するとすぐに、この医院のデータを見ることも操作することもできなくなります（他の医院での利用には影響しません）。あとで「有効化」で戻せます。`)
+      : confirm(`${label}さんのこの医院での利用を再開しますか？`);
+    if (!ok) return;
+    setMessage("");
+    setMessageError(false);
     try {
-      await fetch("/api/users", {
+      const res = await fetch("/api/users", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clinicId, userId, isActive: !isActive }),
+        body: JSON.stringify({ clinicId, userId: user.id, isActive: !user.isActive }),
       });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage(user.isActive ? `${label}さんのこの医院での利用を停止しました。` : `${label}さんのこの医院での利用を再開しました。`);
+      } else {
+        setMessage(data.error || "更新に失敗しました");
+        setMessageError(true);
+      }
       loadUsers(clinicId);
-    } catch { /* ignore */ }
+    } catch {
+      setMessage("更新に失敗しました");
+      setMessageError(true);
+    }
   };
 
   const removeUser = async (userId: string) => {
@@ -268,7 +287,7 @@ export default function UsersPage() {
                     </td>
                     <td className="px-4 py-2 text-center">
                       <div className="flex gap-1 justify-center">
-                        <Button size="sm" variant="ghost" onClick={() => toggleActive(user.id, user.isActive)}>{user.isActive ? "停止" : "有効化"}</Button>
+                        <Button size="sm" variant="ghost" onClick={() => toggleActive(user)}>{user.isActive ? "停止" : "有効化"}</Button>
                         <Button size="sm" variant="ghost" onClick={() => removeUser(user.id)}>除外</Button>
                       </div>
                     </td>
