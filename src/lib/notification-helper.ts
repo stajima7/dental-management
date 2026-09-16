@@ -38,6 +38,8 @@ export async function checkKpiThresholds(clinicId: string, yearMonth: string) {
   // 医院のADMIN/MEMBERユーザーに通知
   for (const cu of clinic.users) {
     if (cu.role === "VIEWER") continue
+    // 停止中の人には医院の数字を送らない（停止した医院の情報が通知経由で届かないように）
+    if (!cu.isActive) continue
 
     const title = `${yearMonth} KPIアラート: ${alerts.length}件の要注意指標`
     const message = alerts
