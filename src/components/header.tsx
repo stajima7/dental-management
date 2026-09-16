@@ -2,6 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { saveClinicId } from "@/lib/selected-clinic";
 
@@ -79,6 +80,10 @@ export function Header() {
         {session?.user?.name && (
           <span className="text-sm text-gray-500 hidden sm:inline">{session.user.name}</span>
         )}
+        {/* 自分でいつでも変えられる場所が無いと、仮パスワードのまま使われ続けてしまう */}
+        <Link href="/account/password" className="text-sm text-gray-500 hover:text-gray-900 hidden sm:inline">
+          パスワード変更
+        </Link>
         <Button
           variant="ghost"
           size="sm"

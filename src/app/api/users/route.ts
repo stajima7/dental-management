@@ -5,6 +5,16 @@ import bcrypt from "bcryptjs"
 import crypto from "crypto"
 import { getClinicAccess } from "@/lib/access";
 
+/**
+ * 仮パスワードを作る。メールや口頭で伝える前提のため、
+ * 紛らわしい文字（0とO、1とlとI）を除いた文字種を使う。
+ */
+function generateTempPassword(length = 12): string {
+  const chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+  const bytes = crypto.randomBytes(length)
+  return Array.from(bytes).map((b) => chars[b % chars.length]).join("")
+}
+
 // GET /api/users?clinicId=xxx - 医院のユーザー一覧
 export async function GET(req: NextRequest) {
   try {
@@ -69,23 +79,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, type: "added", message: "ユーザーを追加しました" })
     }
 
-    // 招待トークン生成
-    const token = crypto.randomBytes(32).toString("hex")
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7日
+    // メールを送る仕組みが無く、招待トークンを受け取る画面も無いため、
+    // 招待ではなくアカウントそのものを作成する。
+    // 管理者が仮パスワードを発行して本人に伝え、初回ログイン時に変更してもらう。
+    const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : email.split("@")[0]
+    const tempPassword = generateTempPassword()
 
-    await prisma.invitation.upsert({
-      where: { clinicId_email: { clinicId, email } },
-      update: { token, role: role || "MEMBER", expiresAt, accepted: false },
-      create: { clinicId, email, role: role || "MEMBER", token, expiresAt },
+    const created = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: await bcrypt.hash(tempPassword, 12),
+        role: "MEMBER",
+        // 変更するまでは他の画面を使わせない
+        mustChangePassword: true,
+        clinics: { create: { clinicId, role: role || "MEMBER" } },
+      },
     })
 
-    // ⚠️ メールを送る仕組みは無いため、招待しても相手には何も届かない。
-    // 事実と違う案内をすると相手が待ち続けてしまうので、次の手順を明示する。
+    // 仮パスワードはこの応答でしか返さない（保存も再表示もしない）
     return NextResponse.json({
       success: true,
-      type: "invited",
-      message: "このメールアドレスはまだ登録されていません。ご本人に新規登録していただいたうえで、もう一度この画面から追加してください（招待メールは送信されません）。",
-      token,
+      type: "created",
+      message: "アカウントを作成しました。仮パスワードを本人にお伝えください。",
+      email: created.email,
+      tempPassword,
     })
   } catch (error) {
     console.error("User invite error:", error)

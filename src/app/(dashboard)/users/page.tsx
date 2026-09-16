@@ -35,6 +35,8 @@ export default function UsersPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("MEMBER");
   const [message, setMessage] = useState("");
+  // 作成直後の仮パスワード。再表示できないため、画面に出したままにする
+  const [createdAccount, setCreatedAccount] = useState<{ email: string; tempPassword: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/clinics").then((r) => r.json()).then((data) => {
@@ -70,13 +72,15 @@ export default function UsersPage() {
       const data = await res.json();
       if (res.ok) {
         setMessage(data.message);
+        // 新規作成のときだけ仮パスワードが返る。この1回しか見られない
+        setCreatedAccount(data.tempPassword ? { email: data.email, tempPassword: data.tempPassword } : null);
         setInviteEmail("");
         setShowInvite(false);
         loadUsers(clinicId);
       } else {
-        setMessage(data.error || "招待に失敗しました");
+        setMessage(data.error || "追加に失敗しました");
       }
-    } catch { setMessage("招待に失敗しました"); }
+    } catch { setMessage("追加に失敗しました"); }
   };
 
   const changeRole = async (userId: string, role: string) => {
@@ -123,7 +127,7 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">ユーザー管理</h1>
         <div className="flex items-center gap-3">
-          <Button onClick={() => setShowInvite(!showInvite)}>ユーザー招待</Button>
+          <Button onClick={() => setShowInvite(!showInvite)}>利用者を追加</Button>
         </div>
       </div>
 
@@ -131,10 +135,34 @@ export default function UsersPage() {
         <div className={`px-4 py-3 rounded text-sm ${message.includes("失敗") ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`}>{message}</div>
       )}
 
+      {createdAccount && (
+        <Card className="border-amber-300">
+          <CardHeader><CardTitle>仮パスワード（この画面を閉じると二度と表示できません）</CardTitle></CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm">
+              <div><span className="text-gray-500 w-32 inline-block">メールアドレス</span><span className="font-mono">{createdAccount.email}</span></div>
+              <div><span className="text-gray-500 w-32 inline-block">仮パスワード</span><span className="font-mono text-lg font-bold tracking-wider">{createdAccount.tempPassword}</span></div>
+            </div>
+            <p className="mt-3 text-sm text-gray-600">
+              本人にお伝えください。初回ログイン時に、ご本人によるパスワード変更が必須になります。
+            </p>
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" variant="ghost" onClick={() => navigator.clipboard?.writeText(`メールアドレス: ${createdAccount.email}
+仮パスワード: ${createdAccount.tempPassword}`)}>コピー</Button>
+              <Button size="sm" variant="ghost" onClick={() => setCreatedAccount(null)}>閉じる</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {showInvite && (
         <Card>
-          <CardHeader><CardTitle>ユーザー招待</CardTitle></CardHeader>
+          <CardHeader><CardTitle>利用者を追加</CardTitle></CardHeader>
           <CardContent>
+            <p className="text-sm text-gray-600 mb-3">
+              既に登録済みのメールアドレスならこの医院に追加します。未登録ならアカウントを作成し、
+              <strong>仮パスワード</strong>を表示します（メールは送信されません）。本人にお伝えください。
+            </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1"><Label>メールアドレス</Label><Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="user@example.com" /></div>
               <div className="w-40">
@@ -145,7 +173,7 @@ export default function UsersPage() {
                   <option value="VIEWER">閲覧者</option>
                 </select>
               </div>
-              <div className="flex items-end"><Button onClick={invite}>招待</Button></div>
+              <div className="flex items-end"><Button onClick={invite}>追加する</Button></div>
             </div>
           </CardContent>
         </Card>

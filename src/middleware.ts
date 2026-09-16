@@ -51,6 +51,13 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin))
   }
 
+  // 管理者が発行した仮パスワードのままの利用者は、変更するまで他の画面に入れない。
+  // 管理者が相手のパスワードを知ったまま使われ続けるのを防ぐため。
+  const PASSWORD_PAGE = "/account/password"
+  if (isLoggedIn && token?.mustChangePassword && pathname !== PASSWORD_PAGE) {
+    return NextResponse.redirect(new URL(PASSWORD_PAGE, req.nextUrl.origin))
+  }
+
   return NextResponse.next()
 }
 

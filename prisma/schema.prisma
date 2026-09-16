@@ -18,6 +18,9 @@ model User {
   password      String?
   role          UserRole  @default(MEMBER)
   isActive      Boolean   @default(true)
+  // 管理者が仮パスワードで作成した利用者は、初回ログイン時に変更を求める。
+  // 管理者が相手のパスワードを知ったままになるのを避けるため。
+  mustChangePassword Boolean @default(false)
   locale        String    @default("ja")
   accounts      Account[]
   sessions      Session[]

@@ -49,6 +49,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: user.email,
             name: user.name,
             role: user.role,
+            // 仮パスワードのまま使い続けさせないため、画面側で変更を促す
+            mustChangePassword: user.mustChangePassword,
           }
         } catch (error) {
           console.error("Auth error:", error)
@@ -62,6 +64,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.role = (user as any).role
         token.id = user.id
+        token.mustChangePassword = (user as any).mustChangePassword
       }
       return token
     },
@@ -69,6 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.role = token.role
         session.user.id = token.id
+        session.user.mustChangePassword = token.mustChangePassword
       }
       return session
     },
