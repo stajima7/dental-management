@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -24,8 +25,15 @@ const NAV_ITEMS = [
   { href: "/settings", label: "医院設定", icon: "⚙️" },
 ];
 
+// 医院の新規登録は管理者だけに見せる。医院側の利用者に出すと、
+// 誤って別の医院を作ってしまう恐れがあるため。
+const ADD_CLINIC = { href: "/setup", label: "医院を追加", icon: "➕" };
+
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const isSuperAdmin = (session?.user as { role?: string } | undefined)?.role === "SUPER_ADMIN";
+  const navItems = isSuperAdmin ? [...NAV_ITEMS, ADD_CLINIC] : NAV_ITEMS;
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -69,7 +77,7 @@ export function Sidebar() {
           </Link>
         </div>
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
