@@ -2,6 +2,7 @@
 
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,13 @@ export default function HumanAnalysisPage() {
         <KpiCard label="衛生士FTE" value={`${getKpi("hygienistFte").toFixed(1)}人`} status={statusMap(getKpiStatus("hygienistFte", getKpi("hygienistFte")))} />
         <KpiCard label="Dr1人当たり売上" value={formatCurrency(getKpi("revenuePerDentist"))} status="neutral" />
         <KpiCard label="DH1人当たり売上" value={formatCurrency(getKpi("revenuePerHygienist"))} status="neutral" />
+      </div>
+
+      {/* ここの「1人当たり売上」は医院全体を人数で割った平均。個人ごとの差は担当者別分析で見る */}
+      <div className="text-sm rounded-md px-4 py-3 bg-blue-50 border border-blue-100 text-blue-900">
+        上の「Dr／DH 1人当たり売上」は、医院全体の売上を人数で割った<strong>平均</strong>です。
+        先生・衛生士さん<strong>一人ひとり</strong>の売上や時間単価は
+        <Link href="/analysis/practitioner" className="underline font-medium mx-0.5">担当者別分析</Link>で確認できます。
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -105,6 +105,8 @@ model Clinic {
   monthlyCancelDetails    MonthlyCancelDetail[]
   monthlyDiscontinued     MonthlyDiscontinued[]
   staffCostRates          StaffCostRate[]
+  practitioners           Practitioner[]
+  practitionerStats       MonthlyPractitionerStats[]
   expansionSetting        ExpansionSetting?
   uploadFiles             UploadFile[]
   importJobs              ImportJob[]
@@ -381,6 +383,58 @@ enum StaffRole {
   ASSISTANT  // 歯科助手
   RECEPTION  // 受付
   TECHNICIAN // 技工士
+}
+
+// ============ 担当者（歯科医師・歯科衛生士） ============
+// 医院全体の売上÷人数では平均しか分からず、誰がどれだけ売上を生んでいるかの
+// 差が見えない。担当者ごとの売上と勤務時間を持ち、時間単価などを比べられるようにする。
+model Practitioner {
+  id             String         @id @default(cuid())
+  clinicId       String
+  clinic         Clinic         @relation(fields: [clinicId], references: [id])
+  name           String
+  /** DENTIST（歯科医師）か HYGIENIST（歯科衛生士）のみ使う */
+  role           StaffRole
+  employmentType EmploymentType @default(FULLTIME)
+  /** 院長。給与として人件費が発生しないため、人件費倍率の対象から外す */
+  isDirector     Boolean        @default(false)
+  /** 退職などで入力の対象から外す。過去の実績は残す */
+  isActive       Boolean        @default(true)
+  sortOrder      Int            @default(0)
+  monthlyStats   MonthlyPractitionerStats[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  // CSV取込で氏名から担当者を特定するため、医院内で氏名は重複させない
+  @@unique([clinicId, name])
+}
+
+enum EmploymentType {
+  FULLTIME // 常勤
+  PARTTIME // 非常勤
+}
+
+// ============ 担当者別の月次実績 ============
+model MonthlyPractitionerStats {
+  id               String       @id @default(cuid())
+  clinicId         String
+  clinic           Clinic       @relation(fields: [clinicId], references: [id])
+  practitionerId   String
+  practitioner     Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  yearMonth        String
+  /** 保険診療の売上（円）。保険点数×10円 */
+  insuranceRevenue Float        @default(0)
+  /** 自費診療の売上（円） */
+  selfPayRevenue   Float        @default(0)
+  /** その月の勤務時間（時間）。時間単価の分母 */
+  workHours        Float        @default(0)
+  /** 担当した延べ患者数。歯科医師と衛生士が同じ患者を診た場合は双方で数える */
+  patientCount     Int          @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([practitionerId, yearMonth])
+  @@index([clinicId, yearMonth])
 }
 
 // ============ 増設シミュレーションの前提 ============

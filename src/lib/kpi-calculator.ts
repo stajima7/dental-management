@@ -190,6 +190,17 @@ export const KPI_DEFINITIONS: Record<string, {
   breakEvenPatientCount:   { name: "損益分岐点患者数",   unit: "人",  category: "損益分岐", format: "number",   higherIsBetter: false },
 };
 
+/**
+ * 月商。TOTAL行があればそれを使い、無ければ区分ごとの合計を使う。
+ * 担当者別分析でも同じ定義で月商を出すため、ここに一本化している
+ * （定義が画面ごとに違うと、同じ月の月商が画面によって食い違う）。
+ */
+export function totalRevenueOf(revenue: { departmentType: string; amount: number }[]): number {
+  const sumOf = (type: string) =>
+    revenue.filter((r) => r.departmentType === type).reduce((sum, r) => sum + r.amount, 0);
+  return sumOf("TOTAL") || (sumOf("INSURANCE") + sumOf("SELF_PAY") + sumOf("MAINTENANCE") + sumOf("HOME_VISIT"));
+}
+
 export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResult[] {
   const kpis: KpiResult[] = [];
   const push = (kpiCode: string, kpiValue: number) => {
@@ -198,10 +209,6 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
   };
 
   // --- 売上関連 ---
-  const totalRevenue = data.revenue
-    .filter((r) => r.departmentType === "TOTAL")
-    .reduce((sum, r) => sum + r.amount, 0);
-
   const insuranceRevenue = data.revenue
     .filter((r) => r.departmentType === "INSURANCE")
     .reduce((sum, r) => sum + r.amount, 0);
@@ -218,7 +225,7 @@ export function calculateKpis(data: MonthlyData, profile: ProfileData): KpiResul
     .filter((r) => r.departmentType === "HOME_VISIT")
     .reduce((sum, r) => sum + r.amount, 0);
 
-  const effectiveTotalRevenue = totalRevenue || (insuranceRevenue + selfPayRevenue + maintenanceRevenue + homeVisitRevenue);
+  const effectiveTotalRevenue = totalRevenueOf(data.revenue);
 
   push("totalRevenue", effectiveTotalRevenue);
   push("insuranceRevenue", insuranceRevenue);
