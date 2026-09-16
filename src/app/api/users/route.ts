@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import crypto from "crypto"
-import { getClinicAccess } from "@/lib/access";
+import { getClinicAccess, MAX_CLINIC_USERS, countClinicMembers } from "@/lib/access";
 
 /**
  * 仮パスワードを作る。メールや口頭で伝える前提のため、
@@ -40,6 +40,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       users: clinicUsers.map((cu: any) => ({ ...cu.user, clinicRole: cu.role })),
       invitations,
+      // 画面で「あと何名追加できるか」を出すため
+      limit: MAX_CLINIC_USERS,
+      used: await countClinicMembers(clinicId),
     })
   } catch (error) {
     console.error("Users fetch error:", error)
@@ -71,7 +74,24 @@ export async function POST(req: NextRequest) {
         where: { userId_clinicId: { userId: existingUser.id, clinicId } },
       })
       if (existingCu) return NextResponse.json({ error: "このユーザーは既に所属しています" }, { status: 400 })
+    }
 
+    // 1医院あたりの人数の上限。既存ユーザーの追加でも新規作成でも1名増えるため、
+    // 枝分かれの前にまとめて確認する。
+    // システム全体の管理者は枠を使わない（保守のために所属しているだけのため）。
+    if (existingUser?.role !== "SUPER_ADMIN") {
+      const used = await countClinicMembers(clinicId)
+      if (used >= MAX_CLINIC_USERS) {
+        return NextResponse.json(
+          {
+            error: `この医院に登録できる利用者は${MAX_CLINIC_USERS}名までです（現在${used}名）。追加するには、使わなくなったアカウントを一覧の「除外」で外してください。`,
+          },
+          { status: 400 }
+        )
+      }
+    }
+
+    if (existingUser) {
       // 直接追加
       await prisma.clinicUser.create({
         data: { userId: existingUser.id, clinicId, role: role || "MEMBER" },

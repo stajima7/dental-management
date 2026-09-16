@@ -66,6 +66,22 @@ export async function getClinicAccess(
 }
 
 /**
+ * 1医院あたりに登録できる利用者数の上限。
+ *
+ * システム全体の管理者（SUPER_ADMIN）は数に含めない。
+ * 保守のために全医院へ所属しているだけで、医院側が使える枠を
+ * 減らしてしまうのは筋が通らないため。
+ */
+export const MAX_CLINIC_USERS = 5;
+
+/** その医院に登録済みの利用者数（管理者アカウントを除く） */
+export async function countClinicMembers(clinicId: string): Promise<number> {
+  return prisma.clinicUser.count({
+    where: { clinicId, user: { role: { not: "SUPER_ADMIN" } } },
+  });
+}
+
+/**
  * 閲覧できる医院のIDを返す。管理者は全医院。
  * 医院一覧や横断集計で使う。
  */

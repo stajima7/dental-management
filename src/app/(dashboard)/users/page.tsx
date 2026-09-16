@@ -37,6 +37,9 @@ export default function UsersPage() {
   const [message, setMessage] = useState("");
   // 作成直後の仮パスワード。再表示できないため、画面に出したままにする
   const [createdAccount, setCreatedAccount] = useState<{ email: string; tempPassword: string } | null>(null);
+  // 1医院あたりの人数の上限（サーバー側で数えた値をそのまま使う）
+  const [limit, setLimit] = useState(0);
+  const [used, setUsed] = useState(0);
 
   useEffect(() => {
     fetch("/api/clinics").then((r) => r.json()).then((data) => {
@@ -55,6 +58,8 @@ export default function UsersPage() {
         const data = await res.json();
         setUsers(data.users || []);
         setInvitations(data.invitations || []);
+        setLimit(data.limit || 0);
+        setUsed(data.used || 0);
       }
     } catch { /* ignore */ }
     setLoading(false);
@@ -120,6 +125,9 @@ export default function UsersPage() {
     } catch { /* ignore */ }
   };
 
+  // 管理者アカウントは枠に含めないため、人数はサーバーが数えた値を使う
+  const isFull = limit > 0 && used >= limit;
+
   if (loading) return <div className="animate-pulse space-y-4"><div className="h-8 bg-gray-200 rounded w-32" /><div className="h-64 bg-gray-200 rounded" /></div>;
 
   return (
@@ -127,9 +135,15 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">ユーザー管理</h1>
         <div className="flex items-center gap-3">
-          <Button onClick={() => setShowInvite(!showInvite)}>利用者を追加</Button>
+          <Button onClick={() => setShowInvite(!showInvite)} disabled={isFull}>利用者を追加</Button>
         </div>
       </div>
+
+      {isFull && (
+        <div className="px-4 py-3 rounded text-sm bg-amber-50 text-amber-800 border border-amber-200">
+          この医院の登録枠（{limit}名）を使い切っています。新しい方を追加するには、下の一覧で使わなくなったアカウントを「除外」してください。
+        </div>
+      )}
 
       {message && (
         <div className={`px-4 py-3 rounded text-sm ${message.includes("失敗") ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`}>{message}</div>
@@ -181,7 +195,12 @@ export default function UsersPage() {
 
       {/* ユーザー一覧 */}
       <Card>
-        <CardHeader><CardTitle>所属ユーザー ({users.length}名)</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>
+            所属ユーザー ({users.length}名)
+            {limit > 0 && <span className="ml-2 text-sm font-normal text-gray-500">登録枠 {used} / {limit}名</span>}
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
