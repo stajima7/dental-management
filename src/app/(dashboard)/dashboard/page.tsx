@@ -1,5 +1,7 @@
 "use client";
 
+import { useSession } from "next-auth/react";
+
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -48,6 +50,10 @@ const statusMap = (s: string): "positive" | "warning" | "critical" | "neutral" =
 };
 
 export default function DashboardPage() {
+  const { data: session } = useSession();
+  // 管理者だけが医院を追加できる。所属の無い利用者を医院作成へ誘導すると、
+  // 誤って別の医院を作ってしまうため案内を分ける
+  const isSuperAdmin = (session?.user as { role?: string } | undefined)?.role === "SUPER_ADMIN";
   const [clinics, setClinics] = useState<ClinicInfo[]>([]);
   const [selectedClinicId, setSelectedClinicId] = useState("");
   const [yearMonth, setYearMonth] = useState(() => {
@@ -155,16 +161,24 @@ export default function DashboardPage() {
         <Card>
           <CardContent>
             <div className="py-12 text-center text-gray-500">
-              <p className="text-lg font-medium">医院が登録されていません</p>
-              <p className="text-sm mt-2">
-                まず初期設定で医院情報を登録してください
-              </p>
-              <Button
-                className="mt-4"
-                onClick={() => window.location.href = "/setup"}
-              >
-                初期設定へ
-              </Button>
+              {isSuperAdmin ? (
+                <>
+                  <p className="text-lg font-medium">医院が登録されていません</p>
+                  <p className="text-sm mt-2">初期設定から医院情報を登録してください</p>
+                  <Button className="mt-4" onClick={() => window.location.href = "/setup"}>
+                    医院を追加
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-medium">医院への登録をお待ちください</p>
+                  <p className="text-sm mt-2 leading-relaxed">
+                    アカウントの作成は完了しています。<br />
+                    管理者が医院に登録すると、この画面に経営データが表示されます。<br />
+                    登録がお済みでない場合は、管理者にご連絡ください。
+                  </p>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

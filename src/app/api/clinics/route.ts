@@ -14,6 +14,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
+    // 医院の新規登録は管理者だけに許す。医院側の利用者が登録直後に
+    // 「初期設定へ」の案内をたどって、誤って別の医院を作ってしまうのを防ぐ。
+    if (!(await isSuperAdmin((session.user as { id?: string }).id))) {
+      return NextResponse.json(
+        { error: "医院の登録は管理者のみが行えます。管理者にご連絡ください。" },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const result = clinicCreateSchema.safeParse(body);
     if (!result.success) {

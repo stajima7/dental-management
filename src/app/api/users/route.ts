@@ -79,7 +79,14 @@ export async function POST(req: NextRequest) {
       create: { clinicId, email, role: role || "MEMBER", token, expiresAt },
     })
 
-    return NextResponse.json({ success: true, type: "invited", message: "招待を作成しました", token })
+    // ⚠️ メールを送る仕組みは無いため、招待しても相手には何も届かない。
+    // 事実と違う案内をすると相手が待ち続けてしまうので、次の手順を明示する。
+    return NextResponse.json({
+      success: true,
+      type: "invited",
+      message: "このメールアドレスはまだ登録されていません。ご本人に新規登録していただいたうえで、もう一度この画面から追加してください（招待メールは送信されません）。",
+      token,
+    })
   } catch (error) {
     console.error("User invite error:", error)
     return NextResponse.json({ error: "招待に失敗しました" }, { status: 500 })
