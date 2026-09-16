@@ -25,7 +25,9 @@ export async function POST(req: Request) {
       )
     }
 
-    const { name, email, password } = result.data
+    const { name, password } = result.data
+    // 保存するアドレスは揃える（招待・ログインと表記がずれないようにする）
+    const email = result.data.email.trim().toLowerCase()
 
     // 招待が無ければ登録できない
     const invitation = await findValidInvitation(typeof body.token === "string" ? body.token : null)

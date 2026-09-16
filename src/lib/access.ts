@@ -86,11 +86,24 @@ export async function countClinicMembers(clinicId: string): Promise<number> {
  * 招待を数えないと、上限を超える人数に招待URLを配れてしまい、
  * 登録の段になって初めて断られることになるため。
  */
-export async function countClinicSlotsUsed(clinicId: string): Promise<number> {
+export async function countClinicSlotsUsed(
+  clinicId: string,
+  /**
+   * 数えない招待の宛先。
+   * 発行済みの招待を仮パスワード発行に切り替えるとき、その招待は取り消される。
+   * 数に入れたままだと、同じ相手の分を二重に数えて断ってしまう。
+   */
+  excludeEmail?: string
+): Promise<number> {
   const [members, pendingInvites] = await Promise.all([
     countClinicMembers(clinicId),
     prisma.invitation.count({
-      where: { clinicId, accepted: false, expiresAt: { gt: new Date() } },
+      where: {
+        clinicId,
+        accepted: false,
+        expiresAt: { gt: new Date() },
+        ...(excludeEmail ? { email: { not: excludeEmail } } : {}),
+      },
     }),
   ]);
   return members + pendingInvites;

@@ -24,8 +24,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null
           }
 
+          // 登録時に小文字で揃えているため、ログインでも同じように揃える。
+          // 揃えないと、大文字で入力した本人が「見つからない」扱いになる。
           const user = await prisma.user.findUnique({
-            where: { email: credentials.email as string },
+            where: { email: (credentials.email as string).trim().toLowerCase() },
           })
 
           if (!user || !user.password) {

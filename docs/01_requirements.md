@@ -72,7 +72,7 @@
 | # | 画面ID | 画面名 | URL | 概要 |
 |---|--------|--------|-----|------|
 | 1 | LOGIN | ログイン | /login | メール/パスワード認証 |
-| 2 | REGISTER | 新規登録 | /register | アカウント作成 |
+| 2 | REGISTER | 新規登録 | /register?token= | 招待URLからアカウント作成（招待必須） |
 | 3 | SETUP | 初期設定 | /setup | ウィザード形式で医院情報登録 |
 | 4 | DASHBOARD | ダッシュボード | /dashboard | 主要KPI・チャート・AIサマリー |
 | 5 | IMPORT | データ取込 | /import | CSV/PDF/手入力 |

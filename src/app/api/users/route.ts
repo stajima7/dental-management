@@ -3,7 +3,10 @@ import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import crypto from "crypto"
-import { getClinicAccess, MAX_CLINIC_USERS, countClinicSlotsUsed } from "@/lib/access";
+import { getClinicAccess, MAX_CLINIC_USERS, countClinicSlotsUsed, type ClinicRole } from "@/lib/access";
+
+/** 医院内の役割。これ以外の値は受け付けない */
+const CLINIC_ROLES: readonly string[] = ["ADMIN", "MEMBER", "VIEWER"];
 import { newInvitationToken, invitationExpiry, INVITE_EXPIRY_DAYS } from "@/lib/invitation";
 
 /**
@@ -58,7 +61,13 @@ export async function POST(req: NextRequest) {
     if (!session?.user) return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
 
     const body = await req.json()
-    const { clinicId, email, role } = body
+    const { clinicId } = body
+    // メールアドレスは大文字小文字や前後の空白を落として揃える。
+    // 揃えないと「別のアドレス」として二重に登録され、本人がログインできなくなる。
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    // 医院内の役割は決められた3つだけ。画面以外から来た値をそのまま渡すと、
+    // 想定外の役割が保存されたり、保存時に落ちたりする。
+    const clinicRole: ClinicRole = CLINIC_ROLES.includes(body.role) ? body.role : "MEMBER"
     // 本人に新規登録してもらう方式を基本とし、こちらでアカウントを作るのは
     // 管理者が画面で明示的に選んだときだけにする。
     // 管理者が相手のパスワードを知っている状態を、既定の運用にしないため。
@@ -85,7 +94,8 @@ export async function POST(req: NextRequest) {
     // 枝分かれの前にまとめて確認する。
     // システム全体の管理者は枠を使わない（保守のために所属しているだけのため）。
     if (existingUser?.role !== "SUPER_ADMIN") {
-      const used = await countClinicSlotsUsed(clinicId)
+      // 仮パスワードに切り替える場合、その相手への招待は取り消されるため数えない
+      const used = await countClinicSlotsUsed(clinicId, createIfMissing ? email : undefined)
       if (used >= MAX_CLINIC_USERS) {
         return NextResponse.json(
           {
@@ -103,8 +113,8 @@ export async function POST(req: NextRequest) {
       const expiresAt = invitationExpiry()
       await prisma.invitation.upsert({
         where: { clinicId_email: { clinicId, email } },
-        update: { token, role: role || "MEMBER", expiresAt, accepted: false },
-        create: { clinicId, email, role: role || "MEMBER", token, expiresAt },
+        update: { token, role: clinicRole, expiresAt, accepted: false },
+        create: { clinicId, email, role: clinicRole, token, expiresAt },
       })
 
       // メールは送れないため、URLは画面に出して管理者から本人に伝えてもらう
@@ -121,14 +131,14 @@ export async function POST(req: NextRequest) {
     if (existingUser) {
       // 直接追加
       await prisma.clinicUser.create({
-        data: { userId: existingUser.id, clinicId, role: role || "MEMBER" },
+        data: { userId: existingUser.id, clinicId, role: clinicRole },
       })
       return NextResponse.json({ success: true, type: "added", message: "ユーザーを追加しました" })
     }
 
-    // メールを送る仕組みが無く、招待トークンを受け取る画面も無いため、
-    // 招待ではなくアカウントそのものを作成する。
-    // 管理者が仮パスワードを発行して本人に伝え、初回ログイン時に変更してもらう。
+    // ここに来るのは、管理者が「仮パスワードを発行して作成する」を選んだときだけ。
+    // ご本人での登録が難しい場合の逃げ道として残している。
+    // 仮パスワードを本人に伝え、初回ログイン時に変更してもらう。
     const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : email.split("@")[0]
     const tempPassword = generateTempPassword()
 
@@ -143,7 +153,7 @@ export async function POST(req: NextRequest) {
         role: "MEMBER",
         // 変更するまでは他の画面を使わせない
         mustChangePassword: true,
-        clinics: { create: { clinicId, role: role || "MEMBER" } },
+        clinics: { create: { clinicId, role: clinicRole } },
       },
     })
 

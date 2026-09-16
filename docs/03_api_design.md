@@ -3,8 +3,10 @@
 ## 認証
 | Method | Path | 概要 |
 |--------|------|------|
-| POST | /api/auth/register | 新規登録 |
+| POST | /api/auth/register | 新規登録（招待の合言葉が必須） |
 | POST | /api/auth/[...nextauth] | NextAuth認証 |
+| GET | /api/invitations/[token] | 招待の宛先と医院名の確認（認証不要） |
+| POST | /api/account/password | 自分のパスワード変更 |
 
 ## 医院管理
 | Method | Path | 概要 |
