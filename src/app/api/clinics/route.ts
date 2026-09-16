@@ -46,12 +46,8 @@ export async function POST(req: NextRequest) {
         corporateType: corporateType || "INDIVIDUAL",
         clinicType: clinicType || "[]",
         isHomeVisit: isHomeVisit || false,
-        users: {
-          create: {
-            userId: (session.user as any).id,
-            role: "ADMIN",
-          },
-        },
+        // 登録できるのはシステム管理者だけで、管理者は所属しなくても全医院を扱える。
+        // 所属させると、医院の先生から見えるユーザー一覧に運営側のアカウントが並んでしまう
       },
     });
 

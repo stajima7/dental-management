@@ -19,6 +19,22 @@ function generateTempPassword(length = 12): string {
   return Array.from(bytes).map((b) => chars[b % chars.length]).join("")
 }
 
+/**
+ * 医院の利用者として操作してよい相手か。
+ * システム管理者（SUPER_ADMIN）は所属しなくても全医院を扱えるため、医院の利用者には含めない。
+ * 医院の先生から見える一覧に運営側のアカウントが並ぶのは好ましくなく、
+ * 先生の操作で管理者のアカウントが停止・除外されることも防ぐ。
+ * 対象がこの医院に所属していない場合も null（他の医院の利用者を操作させない）。
+ */
+async function findClinicMember(clinicId: string, userId: string) {
+  const member = await prisma.clinicUser.findUnique({
+    where: { userId_clinicId: { userId, clinicId } },
+    include: { user: { select: { role: true } } },
+  })
+  if (!member || member.user.role === "SUPER_ADMIN") return null
+  return member
+}
+
 // GET /api/users?clinicId=xxx - 医院のユーザー一覧
 export async function GET(req: NextRequest) {
   try {
@@ -32,7 +48,8 @@ export async function GET(req: NextRequest) {
     if (!cu) return NextResponse.json({ error: "アクセス権がありません" }, { status: 403 })
 
     const clinicUsers = await prisma.clinicUser.findMany({
-      where: { clinicId },
+      // システム管理者は医院の利用者として表示しない
+      where: { clinicId, user: { role: { not: "SUPER_ADMIN" } } },
       include: { user: { select: { id: true, name: true, email: true, isActive: true, createdAt: true } } },
     })
 
@@ -82,6 +99,11 @@ export async function POST(req: NextRequest) {
     // 既存ユーザーか確認
     const existingUser = await prisma.user.findUnique({ where: { email } })
 
+    // システム管理者は所属しなくても全医院を扱えるため、医院の利用者には加えない
+    if (existingUser?.role === "SUPER_ADMIN") {
+      return NextResponse.json({ error: "このメールアドレスは医院の利用者として追加できません" }, { status: 400 })
+    }
+
     if (existingUser) {
       // 既に医院に所属しているか確認
       const existingCu = await prisma.clinicUser.findUnique({
@@ -92,18 +114,15 @@ export async function POST(req: NextRequest) {
 
     // 1医院あたりの人数の上限。既存ユーザーの追加でも新規作成でも1名増えるため、
     // 枝分かれの前にまとめて確認する。
-    // システム全体の管理者は枠を使わない（保守のために所属しているだけのため）。
-    if (existingUser?.role !== "SUPER_ADMIN") {
-      // 仮パスワードに切り替える場合、その相手への招待は取り消されるため数えない
-      const used = await countClinicSlotsUsed(clinicId, createIfMissing ? email : undefined)
-      if (used >= MAX_CLINIC_USERS) {
-        return NextResponse.json(
-          {
-            error: `この医院に登録できる利用者は${MAX_CLINIC_USERS}名までです（現在${used}名）。追加するには、使わなくなったアカウントを一覧の「除外」で外してください。`,
-          },
-          { status: 400 }
-        )
-      }
+    // 仮パスワードに切り替える場合、その相手への招待は取り消されるため数えない
+    const used = await countClinicSlotsUsed(clinicId, createIfMissing ? email : undefined)
+    if (used >= MAX_CLINIC_USERS) {
+      return NextResponse.json(
+        {
+          error: `この医院に登録できる利用者は${MAX_CLINIC_USERS}名までです（現在${used}名）。追加するには、使わなくなったアカウントを一覧の「除外」で外してください。`,
+        },
+        { status: 400 }
+      )
     }
 
     if (!existingUser && !createIfMissing) {
@@ -190,6 +209,15 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "自分自身の管理者権限は変更できません" }, { status: 400 })
     }
 
+    // 以前は対象の所属を確かめず、利用者IDさえ分かれば他の医院の人や
+    // システム管理者も「停止」にできた
+    if (!(await findClinicMember(clinicId, userId))) {
+      return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 })
+    }
+    if (role !== undefined && !CLINIC_ROLES.includes(role)) {
+      return NextResponse.json({ error: "権限の値が正しくありません" }, { status: 400 })
+    }
+
     if (role !== undefined) {
       await prisma.clinicUser.update({
         where: { userId_clinicId: { userId, clinicId } },
@@ -225,12 +253,17 @@ export async function DELETE(req: NextRequest) {
     if (!cu || cu.role !== "ADMIN") return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 })
 
     if (invitationId) {
-      await prisma.invitation.delete({ where: { id: invitationId } })
+      // 以前はIDだけで削除しており、他の医院の招待も取り消せた
+      const result = await prisma.invitation.deleteMany({ where: { id: invitationId, clinicId } })
+      if (result.count === 0) return NextResponse.json({ error: "招待が見つかりません" }, { status: 404 })
       return NextResponse.json({ success: true })
     }
 
     if (userId) {
       if (userId === (session.user as any).id) return NextResponse.json({ error: "自分自身は削除できません" }, { status: 400 })
+      if (!(await findClinicMember(clinicId, userId))) {
+        return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 })
+      }
       await prisma.clinicUser.delete({ where: { userId_clinicId: { userId, clinicId } } })
       return NextResponse.json({ success: true })
     }
